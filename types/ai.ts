@@ -1,0 +1,24 @@
+export interface AIRequest {
+  question: string;
+  juryIds: string[];
+  apiKey: string;
+}
+
+export interface AIResponse {
+  discussion: AIJuryResponse[];
+  summary: string;
+  verdict_narrative: string;
+  votes: Record<string, number>;
+}
+
+export interface AIJuryResponse {
+  name: string;
+  stance: 'Option A' | 'Option B' | 'Undecided';
+  reason: string;
+  quote: string;
+}
+
+export interface AIError {
+  error: string;
+  details?: string;
+}
