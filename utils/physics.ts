@@ -7,23 +7,61 @@ export class BlobGeometry {
   force: THREE.Vector3 = new THREE.Vector3();
   damping = 0.98;
   mass = 1;
+  originalColor: string;
 
   constructor(
     color: string,
     position: THREE.Vector3 = new THREE.Vector3(),
-    radius: number = 0.8
+    meshOrRadius: THREE.Object3D | number = 0.8
   ) {
-    const geometry = new THREE.IcosahedronGeometry(radius, 5);
-    const material = new THREE.MeshPhongMaterial({
-      color: color,
-      emissive: color,
-      emissiveIntensity: 0.1,
-      shininess: 100,
-      wireframe: false,
-    });
+    this.originalColor = color;
+    this.position = position;
 
-    this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh.position.copy(position);
+    if (meshOrRadius instanceof THREE.Object3D) {
+      // Use the provided mesh/model (loaded model)
+      this.mesh = meshOrRadius as unknown as THREE.Mesh;
+      this.mesh.position.copy(position);
+      // Rotate -90 degrees on Y axis
+      this.mesh.rotation.y = -Math.PI / 2;
+      
+      // Apply toon shading material
+      this.mesh.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          // Extract the original texture map if it exists
+          let originalMap: THREE.Texture | null = null;
+          if (child.material instanceof THREE.Material && 'map' in child.material) {
+            originalMap = (child.material as any).map;
+          }
+
+          const toonMaterial = new THREE.MeshToonMaterial({
+            color: '#ffffff',
+            map: originalMap,
+          });
+          child.material = toonMaterial;
+          child.castShadow = true;
+          child.receiveShadow = true;
+          // Compute normals for smooth shading
+          if (child.geometry) {
+            child.geometry.computeVertexNormals();
+          }
+        }
+      });
+    } else {
+      // Fallback: create a sphere if no model provided
+      const radius = meshOrRadius as number;
+      const geometry = new THREE.IcosahedronGeometry(radius, 5);
+      // Compute vertex normals for smooth shading
+      geometry.computeVertexNormals();
+      const material = new THREE.MeshToonMaterial({
+        color: '#ffffff',
+      });
+
+      this.mesh = new THREE.Mesh(geometry, material);
+      this.mesh.position.copy(position);
+      this.mesh.castShadow = true;
+      this.mesh.receiveShadow = true;
+    }
+    
     this.position = this.mesh.position.clone();
   }
 
@@ -56,19 +94,35 @@ export class BlobGeometry {
   setHighlight(highlighted: boolean, originalColor: string) {
     if (!this.mesh) return;
 
-    if (highlighted) {
-      (this.mesh.material as THREE.MeshPhongMaterial).emissiveIntensity = 0.4;
-      (this.mesh.material as THREE.MeshPhongMaterial).emissive.setHex(0x9b0808);
-    } else {
-      (this.mesh.material as THREE.MeshPhongMaterial).emissiveIntensity = 0.1;
-      (this.mesh.material as THREE.MeshPhongMaterial).emissive.setStyle(originalColor);
-    }
+    this.mesh.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+        if (highlighted) {
+          child.material.emissive?.setHex(0x9b0808);
+          child.material.emissiveIntensity = 0.5;
+        } else {
+          child.material.emissive?.setStyle(originalColor);
+          child.material.emissiveIntensity = 0;
+        }
+      }
+    });
   }
 
   dispose() {
     if (this.mesh) {
-      (this.mesh.geometry as THREE.BufferGeometry).dispose();
-      (this.mesh.material as THREE.Material).dispose();
+      this.mesh.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          if (child.geometry) {
+            child.geometry.dispose();
+          }
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach((mat) => mat.dispose());
+            } else {
+              child.material.dispose();
+            }
+          }
+        }
+      });
     }
   }
 }

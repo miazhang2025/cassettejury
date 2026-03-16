@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { BlobGeometry, PhysicsSimulator } from '@/utils/physics';
 import { juries, JuryMember } from '@/config/juries';
+import { DiscussionResult } from '@/types/app';
 
 export interface HoveredBlobInfo {
   juryMember: JuryMember | null;
   screenPosition: { x: number; y: number } | null;
 }
 
-export const useThreeJsScene = (canvasElementId: string) => {
+export const useThreeJsScene = (canvasElementId: string, showResults: boolean = false) => {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -18,6 +20,10 @@ export const useThreeJsScene = (canvasElementId: string) => {
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const originalBlobPositionsRef = useRef<Map<BlobGeometry, THREE.Vector3>>(new Map());
+  const modelCacheRef = useRef<Map<string, THREE.Group>>(new Map());
+  const gltfLoaderRef = useRef<GLTFLoader | null>(null);
+  const stageRef = useRef<THREE.Group | null>(null);
+  const blobBasePositionsRef = useRef<Map<BlobGeometry, THREE.Vector3>>(new Map());
 
   const [isReady, setIsReady] = useState(false);
   const [hoveredBlobInfo, setHoveredBlobInfo] = useState<HoveredBlobInfo>({
@@ -54,6 +60,23 @@ export const useThreeJsScene = (canvasElementId: string) => {
     return () => clearTimeout(timeoutId);
   }, [canvasElementId]);
 
+  // Apply position offset when results show/hide
+  useEffect(() => {
+    const offsetX = showResults ? -1 : 0;
+
+    // Apply offset to stage
+    if (stageRef.current) {
+      stageRef.current.position.x = offsetX;
+    }
+
+    // Apply offset to all blobs
+    for (const [blob, basePos] of blobBasePositionsRef.current.entries()) {
+      if (blob.mesh) {
+        blob.mesh.position.x = basePos.x + offsetX;
+      }
+    }
+  }, [showResults]);
+
   const initializeScene = (width: number, height: number, canvas: HTMLCanvasElement) => {
     // Set canvas pixel dimensions
     canvas.width = Math.floor(width);
@@ -61,13 +84,14 @@ export const useThreeJsScene = (canvasElementId: string) => {
 
     // Scene setup
     const scene = new THREE.Scene();
-      scene.background = new THREE.Color('#9B0808');
+    scene.background = new THREE.Color('#9B0808');
     sceneRef.current = scene;
-// Camera - perspective for true 3D
-      const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
-      camera.position.z = 8;
-      camera.position.y = 60;
-      camera.lookAt(50, 5, 0);
+
+    // Camera - perspective for true 3D
+    const camera = new THREE.PerspectiveCamera(20, width / height, 0.1, 1000);
+    camera.position.z = 8;
+    camera.position.y = 4;
+    camera.lookAt(0, 2, 0);
     cameraRef.current = camera;
 
     // Renderer
@@ -81,19 +105,36 @@ export const useThreeJsScene = (canvasElementId: string) => {
     const ambientLight = new THREE.AmbientLight('#ffffff', 0.7);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight('#ffffff', 0.9);
-    keyLight.position.set(3, 5, 3);
+    const keyLight = new THREE.DirectionalLight('#ffffff', 5.0);
+    keyLight.position.set(-3, 5, 3);
     keyLight.castShadow = true;
     scene.add(keyLight);
 
-    // Wooden box container
-    const boxGeometry = new THREE.BoxGeometry(6, 4.5, 4);
-    const boxMaterial = new THREE.MeshPhongMaterial({
-      color: '#8B6F47',
-      side: THREE.BackSide,
+    // Load stage model
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.load('/stage.glb', (gltf) => {
+      const stage = gltf.scene;
+      
+      // Rotate -90 degrees on Y axis and scale to 5
+      stage.rotation.y = -Math.PI / 2;
+      stage.scale.set(5, 5, 5);
+      stage.position.y = -0.7;  // Move stage lower
+      
+      // Preserve textures - only add shadow properties and smooth shading
+      stage.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          // Compute normals for smooth shading
+          if (child.geometry) {
+            child.geometry.computeVertexNormals();
+          }
+        }
+      });
+      
+      stageRef.current = stage;
+      scene.add(stage);
     });
-    const box = new THREE.Mesh(boxGeometry, boxMaterial);
-    scene.add(box);
 
     // Physics simulator
     const physics = new PhysicsSimulator();
@@ -121,6 +162,19 @@ export const useThreeJsScene = (canvasElementId: string) => {
 
     window.addEventListener('resize', handleResize);
 
+    // Camera navigation controls - declare before handlers that use them
+    let cameraTheta = 0; // Horizontal angle (around Y axis)
+    let cameraDistance = 5; // Distance from center
+    let targetTheta = cameraTheta;
+    let targetDistance = cameraDistance;
+    const MIN_DISTANCE = 6;
+    const MAX_DISTANCE = 10;
+    const CAMERA_ROTATION_SPEED = 0.005;
+    const SMOOTHING_FACTOR = 0.1; // Interpolation factor for smooth movement
+
+    let isRotatingCamera = false;
+    let lastCameraMouseX = 0;
+
     // Handle mouse move for raycasting and dragging
     const handleMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
@@ -134,6 +188,15 @@ export const useThreeJsScene = (canvasElementId: string) => {
     let isDragging = false;
 
     const handleMouseDown = (e: MouseEvent) => {
+      // Left-click for camera rotation
+      if (e.button === 0) {
+        isRotatingCamera = true;
+        lastCameraMouseX = e.clientX;
+        e.preventDefault();
+        return;
+      }
+
+      // Left-click for blob interaction
       const rect = canvas.getBoundingClientRect();
       const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -141,16 +204,26 @@ export const useThreeJsScene = (canvasElementId: string) => {
       raycasterRef.current.setFromCamera(new THREE.Vector2(mouseX, mouseY), camera);
       const intersects = raycasterRef.current.intersectObjects(
         Array.from(blobsRef.current.values()).map((b) => b.mesh!),
-        false
+        true  // recursive: true to detect intersections with child meshes
       );
 
       if (intersects.length > 0) {
         const firstMesh = intersects[0].object as THREE.Mesh;
+        
+        // Find the top-level blob that contains this intersected mesh
         for (const [_, blob] of blobsRef.current) {
-          if (blob.mesh === firstMesh) {
-            draggedBlob = blob;
-            isDragging = true;
-            lastMousePos = { x: mouseX, y: mouseY };
+          let current: THREE.Object3D | null = firstMesh;
+          while (current) {
+            if (current === blob.mesh) {
+              draggedBlob = blob;
+              isDragging = true;
+              lastMousePos = { x: mouseX, y: mouseY };
+              break;
+            }
+            current = current.parent;
+          }
+          
+          if (draggedBlob) {
             break;
           }
         }
@@ -160,44 +233,74 @@ export const useThreeJsScene = (canvasElementId: string) => {
     const handleMouseUp = () => {
       draggedBlob = null;
       isDragging = false;
+      isRotatingCamera = false;
+    };
+
+    const handleCameraMouseMove = (e: MouseEvent) => {
+      if (isRotatingCamera) {
+        const deltaX = e.clientX - lastCameraMouseX;
+        targetTheta -= deltaX * CAMERA_ROTATION_SPEED;
+        lastCameraMouseX = e.clientX;
+      }
+    };
+
+    const handleMouseWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomDirection = e.deltaY > 0 ? 1 : -1;
+      targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, targetDistance + zoomDirection * 0.5));
     };
 
     canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mousemove', handleCameraMouseMove);
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mouseup', handleMouseUp);
     canvas.addEventListener('mouseleave', handleMouseUp);
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault()); // Prevent context menu
+    canvas.addEventListener('wheel', handleMouseWheel, { passive: false });
 
     let animationId: number;
     let hoveredBlob: BlobGeometry | null = null;
     let cameraAnimationTime = 0;
     const CAMERA_ANIMATION_DURATION = 2000; // 2 seconds subtle animation
+    const initialCameraDistance = cameraDistance; // Store initial distance for smooth animation
+    const initialCameraTheta = cameraTheta; // Store initial angle for smooth animation
 
     const animate = () => {
       animationId = requestAnimationFrame(animate);
+
+      // Smooth interpolation for camera angle and distance
+      cameraTheta += (targetTheta - cameraTheta) * SMOOTHING_FACTOR;
+      cameraDistance += (targetDistance - cameraDistance) * SMOOTHING_FACTOR;
+
+      // Calculate camera shift based on whether results are showing
+      const cameraShiftX = showResults ? -2 : 0; // Shift left by 2 units when results show
 
       // Subtle camera animation on load - from facing down to facing the box
       if (cameraAnimationTime < CAMERA_ANIMATION_DURATION) {
         const progress = cameraAnimationTime / CAMERA_ANIMATION_DURATION;
         const easeProgress = 1 - Math.cos(progress * Math.PI) / 2; // easeInOutCosine
 
-        // Smoothly transition from higher position (more looking down) to final position
-        const startY = 60;
-        const endY = 20;
-        const startZ = 12;
-        const endZ = 8;
+        // Smoothly transition from starting position to current interactive position
+        const startDistance = initialCameraDistance;
+        const endDistance = cameraDistance;
 
-        camera.position.y = startY - (startY - endY) * easeProgress;
-        camera.position.z = startZ - (startZ - endZ) * easeProgress;
-        camera.position.x = 0; // Keep centered
-        
-        // Always look at the center (where the box is)
-        camera.lookAt(0, 2, 0);
+        const lerpedDistance = startDistance + (endDistance - startDistance) * easeProgress;
+
+        // Calculate camera position based on angle and distance, with Y offset
+        camera.position.x = Math.sin(cameraTheta) * lerpedDistance + cameraShiftX;
+        camera.position.y = 3; // Keep some height
+        camera.position.z = Math.cos(cameraTheta) * lerpedDistance;
 
         cameraAnimationTime += 16; // Approximate frame time
       } else {
-        // Ensure camera stays centered on box after animation
-        camera.lookAt(0, 0, 0);
+        // After animation, use interactive camera controls
+        camera.position.x = Math.sin(cameraTheta) * cameraDistance + cameraShiftX;
+        camera.position.y = 3; // Keep some height
+        camera.position.z = Math.cos(cameraTheta) * cameraDistance;
       }
+
+      // Always look at the center of the box, shifted when results show
+      camera.lookAt(cameraShiftX, 0, 0);
 
       // Update physics - DISABLED: keep blobs static
       // physicsRef.current!.update();
@@ -215,40 +318,46 @@ export const useThreeJsScene = (canvasElementId: string) => {
       raycasterRef.current.setFromCamera(mouseRef.current, camera);
       const intersects = raycasterRef.current.intersectObjects(
         Array.from(blobsRef.current.values()).map((b) => b.mesh!),
-        false
+        true  // recursive: true to detect intersections with child meshes in loaded models
       );
 
       // Update highlights
       for (const blob of blobsRef.current.values()) {
         if (hoveredBlob !== blob && draggedBlob !== blob) {
-          const color = blob.mesh!.material instanceof THREE.MeshPhongMaterial
-            ? blob.mesh!.material.color.getHexString()
-            : '#ffffff';
-          blob.setHighlight(false, color);
+          blob.setHighlight(false, blob.originalColor || '#ffffff');
         }
       }
 
       if (intersects.length > 0 && !isDragging) {
         const firstMesh = intersects[0].object as THREE.Mesh;
+        
+        // Find the top-level blob that contains this intersected mesh
         for (const [_, blob] of blobsRef.current) {
-          if (blob.mesh === firstMesh) {
-            hoveredBlob = blob;
-            const color = blob.mesh!.material instanceof THREE.MeshPhongMaterial
-              ? blob.mesh!.material.color.getHexString()
-              : '#ffffff';
-            blob.setHighlight(true, color);
-            
-            // Update hovered blob info with jury member data and screen position
-            const blobWorldPos = blob.getWorldPosition();
-            const screenPos = blobWorldPos.project(camera);
-            const canvasRect = canvas.getBoundingClientRect();
-            setHoveredBlobInfo({
-              juryMember: blobToJuryRef.current.get(blob) || null,
-              screenPosition: {
-                x: canvasRect.left + (screenPos.x + 1) * (canvasRect.width / 2),
-                y: canvasRect.top + (1 - screenPos.y) * (canvasRect.height / 2),
-              },
-            });
+          // Check if the intersected object is the blob mesh itself or one of its descendants
+          let current: THREE.Object3D | null = firstMesh;
+          while (current) {
+            if (current === blob.mesh) {
+              // Found the blob!
+              hoveredBlob = blob;
+              blob.setHighlight(true, blob.originalColor || '#ffffff');
+              
+              // Update hovered blob info with jury member data and screen position
+              const blobWorldPos = blob.getWorldPosition();
+              const screenPos = blobWorldPos.project(camera);
+              const canvasRect = canvas.getBoundingClientRect();
+              setHoveredBlobInfo({
+                juryMember: blobToJuryRef.current.get(blob) || null,
+                screenPosition: {
+                  x: canvasRect.left + (screenPos.x + 1) * (canvasRect.width / 2),
+                  y: canvasRect.top + (1 - screenPos.y) * (canvasRect.height / 2),
+                },
+              });
+              break;
+            }
+            current = current.parent;
+          }
+          
+          if (hoveredBlob === blob) {
             break;
           }
         }
@@ -256,10 +365,17 @@ export const useThreeJsScene = (canvasElementId: string) => {
         hoveredBlob = null;
         setHoveredBlobInfo({ juryMember: null, screenPosition: null });
       } else if (isDragging && draggedBlob) {
-        const color = draggedBlob.mesh!.material instanceof THREE.MeshPhongMaterial
-          ? draggedBlob.mesh!.material.color.getHexString()
-          : '#ffffff';
-        draggedBlob.setHighlight(true, color);
+        draggedBlob.setHighlight(true, draggedBlob.originalColor || '#ffffff');
+      }
+
+      // Apply scale animation to blobs
+      const time = Date.now() * 0.001; // Convert to seconds
+      for (const blob of blobsRef.current.values()) {
+        if (blob.mesh) {
+          // Create a pulsing effect with sine wave: ranges from 0.95 to 1.05
+          const scale = 1 + Math.sin(time * 2 + blob.mesh.position.x) * 0.05;
+          blob.mesh.scale.set(scale, scale, scale);
+        }
       }
 
       renderer.render(scene, camera);
@@ -271,44 +387,84 @@ export const useThreeJsScene = (canvasElementId: string) => {
     return () => {
       window.removeEventListener('resize', handleResize);
       canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('mousemove', handleCameraMouseMove);
       canvas.removeEventListener('mousedown', handleMouseDown);
       canvas.removeEventListener('mouseup', handleMouseUp);
       canvas.removeEventListener('mouseleave', handleMouseUp);
+      canvas.removeEventListener('contextmenu', (e) => e.preventDefault());
+      canvas.removeEventListener('wheel', handleMouseWheel);
       cancelAnimationFrame(animationId);
       renderer.dispose();
-      boxGeometry.dispose();
-      boxMaterial.dispose();
     };
   };
 
   const addBlob = (id: string, color: string, position: THREE.Vector3) => {
-    console.log('addBlob called with:', { id, color, position: { x: position.x, y: position.y, z: position.z } });
-    console.log('Scene ready?', !!sceneRef.current, 'Physics ready?', !!physicsRef.current);
-
     if (!sceneRef.current || !physicsRef.current) {
-      console.error('Scene or Physics not initialized in addBlob');
       return;
     }
 
-    const blob = new BlobGeometry(color, position);
-    console.log('Created BlobGeometry, mesh exists?', !!blob.mesh);
+    if (!gltfLoaderRef.current) {
+      gltfLoaderRef.current = new GLTFLoader();
+    }
 
-    if (blob.mesh) {
-      console.log('Adding mesh to scene...');
-      sceneRef.current.add(blob.mesh);
-      blobsRef.current.set(id, blob);
-      physicsRef.current.addBlob(blob);
-      originalBlobPositionsRef.current.set(blob, position.clone());
+    const juryMember = juries.find((j) => j.id === id);
+    if (!juryMember) {
+      console.warn(`Jury member with id ${id} not found`);
+      return;
+    }
+
+    const loader = gltfLoaderRef.current;
+    const modelPath = `/jury/${id}.glb`;
+
+    // Check if model is already cached
+    if (modelCacheRef.current.has(modelPath)) {
+      const cachedModel = modelCacheRef.current.get(modelPath)!;
+      const clonedModel = cachedModel.clone();
       
-      // Map blob to jury member - find the jury member with matching id
-      const juryMember = juries.find((j) => j.id === id);
-      if (juryMember) {
-        console.log('Mapped blob to jury member:', juryMember.name);
+      const blob = new BlobGeometry(color, position, clonedModel);
+      if (blob.mesh) {
+        sceneRef.current.add(blob.mesh);
+        blobsRef.current.set(id, blob);
+        physicsRef.current.addBlob(blob);
+        originalBlobPositionsRef.current.set(blob, position.clone());
+        blobBasePositionsRef.current.set(blob, position.clone());
         blobToJuryRef.current.set(blob, juryMember);
       }
-      console.log('Blob added successfully. Total blobs in scene:', sceneRef.current.children.length);
     } else {
-      console.error('Failed to create blob mesh');
+      // Load the model
+      loader.load(
+        modelPath,
+        (gltf) => {
+          // Cache the loaded model
+          modelCacheRef.current.set(modelPath, gltf.scene);
+
+          const clonedModel = gltf.scene.clone();
+          const blob = new BlobGeometry(color, position, clonedModel);
+
+          if (blob.mesh) {
+            sceneRef.current!.add(blob.mesh);
+            blobsRef.current.set(id, blob);
+            physicsRef.current!.addBlob(blob);
+            originalBlobPositionsRef.current.set(blob, position.clone());
+            blobBasePositionsRef.current.set(blob, position.clone());
+            blobToJuryRef.current.set(blob, juryMember);
+          }
+        },
+        undefined,
+        (error) => {
+          console.error(`Failed to load model for ${id}:`, error);
+          // Fallback to sphere
+          const blob = new BlobGeometry(color, position, 0.8);
+          if (blob.mesh) {
+            sceneRef.current!.add(blob.mesh);
+            blobsRef.current.set(id, blob);
+            physicsRef.current!.addBlob(blob);
+            originalBlobPositionsRef.current.set(blob, position.clone());
+            blobBasePositionsRef.current.set(blob, position.clone());
+            blobToJuryRef.current.set(blob, juryMember);
+          }
+        }
+      );
     }
   };
 

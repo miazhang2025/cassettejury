@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { JuryMember } from '@/config/juries';
 
 interface JurySelectorCardProps {
@@ -35,7 +36,7 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#E5E5E1');
 
-    const camera = new THREE.OrthographicCamera(-1.5, 1.5, 1.5, -1.5, 0.1, 100);
+    const camera = new THREE.OrthographicCamera(-0.8, 0.8, 0.8, -0.8, 0.1, 100);
     camera.position.z = 3;
 
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
@@ -51,19 +52,58 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
     keyLight.position.set(2, 2, 2);
     scene.add(keyLight);
 
-    // Create blob
-    const geometry = new THREE.IcosahedronGeometry(0.8, 5);
-    const material = new THREE.MeshPhongMaterial({
-      color: jury.color,
-      emissive: jury.color,
-      emissiveIntensity: 0.1,
-      shininess: 100,
-      wireframe: false,
-    });
+    // Load jury model
+    const loader = new GLTFLoader();
+    loader.load(
+      `/jury/${jury.id}.glb`,
+      (gltf) => {
+        const model = gltf.scene;
+        
+        // Rotate -90 degrees on Y axis
+        model.rotation.y = -Math.PI / 2;
+        
+        // Apply toon shading material
+        model.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            // Extract the original texture map if it exists
+            let originalMap: THREE.Texture | null = null;
+            if (child.material instanceof THREE.Material && 'map' in child.material) {
+              originalMap = (child.material as any).map;
+            }
 
-    const mesh = new THREE.Mesh(geometry, material);
-    scene.add(mesh);
-    meshRef.current = mesh;
+            const toonMaterial = new THREE.MeshToonMaterial({
+              color: '#ffffff',
+              map: originalMap,
+            });
+            child.material = toonMaterial;
+            child.castShadow = true;
+            child.receiveShadow = true;
+            // Compute normals for smooth shading
+            if (child.geometry) {
+              child.geometry.computeVertexNormals();
+            }
+          }
+        });
+        
+        scene.add(model);
+        meshRef.current = model as any;
+      },
+      undefined,
+      (error) => {
+        console.error(`Failed to load model for ${jury.id}:`, error);
+        // Fallback: create a sphere if model fails to load
+        const geometry = new THREE.IcosahedronGeometry(0.8, 5);
+        // Compute vertex normals for smooth shading
+        geometry.computeVertexNormals();
+        const material = new THREE.MeshToonMaterial({
+          color: '#ffffff',
+        });
+
+        const mesh = new THREE.Mesh(geometry, material);
+        scene.add(mesh);
+        meshRef.current = mesh;
+      }
+    );
 
     // Animation loop
     let animationId: number;
@@ -71,7 +111,6 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
       animationId = requestAnimationFrame(animate);
 
       if (meshRef.current) {
-        meshRef.current.rotation.x += 0.005;
         meshRef.current.rotation.y += 0.01;
       }
 
@@ -93,10 +132,19 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationId);
       renderer.dispose();
-      geometry.dispose();
-      material.dispose();
+      // Only dispose geometry/material if they exist (fallback case)
+      if (meshRef.current?.geometry) {
+        (meshRef.current.geometry as THREE.BufferGeometry).dispose();
+      }
+      if (meshRef.current?.material) {
+        if (Array.isArray(meshRef.current.material)) {
+          meshRef.current.material.forEach((m) => m.dispose());
+        } else {
+          (meshRef.current.material as THREE.Material).dispose();
+        }
+      }
     };
-  }, [jury.color]);
+  }, [jury.color, jury.id]);
 
   const handleClick = () => {
     if (!maxSelected || isSelected) {
@@ -156,8 +204,8 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
       <div
         className="rounded-full overflow-hidden cursor-pointer transition-all"
         style={{
-          width: '80px',
-          height: '80px',
+          width: '140px',
+          height: '140px',
           border: `${borderWidth}px solid ${borderColor}`,
           opacity: maxSelected && !isSelected ? 0.5 : 1,
           pointerEvents: maxSelected && !isSelected ? 'none' : 'auto',

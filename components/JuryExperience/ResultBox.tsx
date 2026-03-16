@@ -6,37 +6,105 @@ import { DiscussionResult } from '@/types/app';
 interface ResultBoxProps {
   result: DiscussionResult | null;
   showResult: boolean;
+  onRetry?: () => void;
+  onBackToSelection?: () => void;
 }
 
-export const ResultBox: React.FC<ResultBoxProps> = ({ result, showResult }) => {
+const slideInStyle: React.CSSProperties = {
+  animation: 'slideInFromRight 0.5s ease-out forwards',
+};
+
+export const ResultBox: React.FC<ResultBoxProps> = ({
+  result,
+  showResult,
+  onRetry,
+  onBackToSelection,
+}) => {
   if (!showResult || !result) return null;
+
+  // Add keyframes style to document
+  React.useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes slideInFromRight {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   // Handle error results
   if (result.error) {
     return (
       <div
-        className="fixed left-1/2 transform -translate-x-1/2 w-11/12 md:w-full max-w-2xl rounded-lg border-2 shadow-lg"
+        className="fixed right-0 top-0 h-screen w-80 overflow-y-auto flex flex-col shadow-lg"
         style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-          borderColor: '#ffb3b3',
-          top: 'calc(60px + 1.5rem)',
+          backgroundColor: 'rgba(255, 255, 255, 0.98)',
+          borderLeft: '2px solid #ffb3b3',
           zIndex: 30,
           pointerEvents: 'auto',
+          ...slideInStyle,
         }}
       >
-        <div className="p-4 md:p-6">
-          <h2 className="text-lg md:text-xl font-bold mb-2" style={{ color: '#9B0808' }}>
+        <div className="p-6 space-y-4 flex-1">
+          <h2 className="text-2xl font-bold" style={{ color: '#9B0808' }}>
             Error
           </h2>
-          <p className="text-sm mb-4" style={{ color: '#c00000' }}>
+          <p className="text-base" style={{ color: '#c00000' }}>
             {result.error}
           </p>
           {result.details && (
-            <details className="text-xs" style={{ color: '#666666' }}>
+            <details className="text-sm" style={{ color: '#666666' }}>
               <summary>Details</summary>
-              <pre style={{ overflow: 'auto', marginTop: '8px' }}>{result.details}</pre>
+              <pre style={{ overflow: 'auto', marginTop: '8px', fontSize: '12px' }}>{result.details}</pre>
             </details>
           )}
+        </div>
+
+        {/* Button Footer */}
+        <div className="p-6 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
+          <button
+            onClick={onRetry}
+            className="w-full px-4 py-3 rounded font-semibold text-base transition-colors"
+            style={{
+              backgroundColor: '#9B0808',
+              color: '#E5E5E1',
+            }}
+            onMouseEnter={(e) => {
+              (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
+            }}
+            onMouseLeave={(e) => {
+              (e.target as HTMLButtonElement).style.backgroundColor = '#9B0808';
+            }}
+          >
+            Ask Again
+          </button>
+          <button
+            onClick={onBackToSelection}
+            className="w-full px-4 py-3 rounded font-semibold text-base transition-colors"
+            style={{
+              backgroundColor: '#9B0808',
+              color: '#E5E5E1',
+            }}
+            onMouseEnter={(e) => {
+              (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
+            }}
+            onMouseLeave={(e) => {
+              (e.target as HTMLButtonElement).style.backgroundColor = '#9B0808';
+            }}
+          >
+            Back
+          </button>
         </div>
       </div>
     );
@@ -52,43 +120,44 @@ export const ResultBox: React.FC<ResultBoxProps> = ({ result, showResult }) => {
 
   return (
     <div
-      className="fixed left-1/2 transform -translate-x-1/2 w-11/12 md:w-full max-w-2xl rounded-lg border-2 shadow-lg"
+      className="fixed right-0 top-0 h-screen w-80 overflow-y-auto flex flex-col shadow-lg"
       style={{
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        borderColor: '#CCCCCC',
-        top: 'calc(60px + 1.5rem)',
+        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        borderLeft: '2px solid #CCCCCC',
         zIndex: 30,
         pointerEvents: 'auto',
+        ...slideInStyle,
       }}
     >
-      <div className="p-4 md:p-6">
+      <div className="p-6 space-y-6 flex-1">
         {/* Summary */}
-        <div className="mb-4">
+        <div>
           <p className="text-sm" style={{ color: '#4a4a4a' }}>
             The jury has decided:
           </p>
-          <p className="text-lg md:text-xl font-bold" style={{ color: '#9B0808' }}>
+          <p className="text-2xl font-bold" style={{ color: '#9B0808' }}>
             {result.summary}
           </p>
         </div>
 
         {/* Verdict narrative */}
         {result.verdict_narrative && (
-          <p className="text-sm mb-4" style={{ color: '#1a1a1a' }}>
+          <p className="text-base" style={{ color: '#1a1a1a', lineHeight: '1.6' }}>
             {result.verdict_narrative}
           </p>
         )}
 
         {/* Vote breakdown */}
-        <div className="border-t pt-3 pb-3" style={{ borderColor: '#CCCCCC' }}>
-          <p className="text-xs font-medium mb-2" style={{ color: '#4a4a4a' }}>
+        <div className="border-t pt-4" style={{ borderColor: '#CCCCCC' }}>
+          <p className="text-sm font-medium mb-3" style={{ color: '#4a4a4a' }}>
             Jury breakdown:
           </p>
-          <div className="flex flex-wrap gap-4">
+          <div className="space-y-2">
             {votePercentages.map(({ option, percentage, count }) => (
-              <div key={option} className="text-xs">
-                <span style={{ color: '#1a1a1a' }}>
-                  {percentage}% ({count}) chose {option}
+              <div key={option} className="text-sm flex justify-between items-center">
+                <span style={{ color: '#1a1a1a' }}>{option}</span>
+                <span style={{ color: '#9B0808', fontWeight: 600 }}>
+                  {percentage}% ({count})
                 </span>
               </div>
             ))}
@@ -96,9 +165,45 @@ export const ResultBox: React.FC<ResultBoxProps> = ({ result, showResult }) => {
         </div>
 
         {/* Hover hint */}
-        <p className="text-xs text-center mt-3" style={{ color: '#8a8a8a' }}>
-          Hover over blobs to see individual jury member verdicts →
+        <p className="text-sm text-center" style={{ color: '#8a8a8a' }}>
+          👆 Hover over blobs to see individual jury member verdicts
         </p>
+      </div>
+
+      {/* Button Footer */}
+      <div className="p-6 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
+        <button
+          onClick={onRetry}
+          className="w-full px-4 py-3 rounded font-semibold text-base transition-colors"
+          style={{
+            backgroundColor: '#9B0808',
+            color: '#E5E5E1',
+          }}
+          onMouseEnter={(e) => {
+            (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
+          }}
+          onMouseLeave={(e) => {
+            (e.target as HTMLButtonElement).style.backgroundColor = '#9B0808';
+          }}
+        >
+          Ask Again
+        </button>
+        <button
+          onClick={onBackToSelection}
+          className="w-full px-4 py-3 rounded font-semibold text-base transition-colors"
+          style={{
+            backgroundColor: '#9B0808',
+            color: '#E5E5E1',
+          }}
+          onMouseEnter={(e) => {
+            (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
+          }}
+          onMouseLeave={(e) => {
+            (e.target as HTMLButtonElement).style.backgroundColor = '#9B0808';
+          }}
+        >
+          Back
+        </button>
       </div>
     </div>
   );

@@ -6,15 +6,23 @@ import { useApp } from '@/context/AppContext';
 import { useThreeJsScene } from '@/hooks/useThreeJsScene';
 import { BlobHoverCard } from './BlobHoverCard';
 import { APP_CONSTANTS } from '@/config/constants';
+import { DiscussionResult } from '@/types/app';
 
 interface JuryStageProps {
   onFightComplete?: () => void;
   triggerFight?: boolean;
+  showResults?: boolean;
+  discussionResult?: DiscussionResult | null;
 }
 
-export const JuryStage: React.FC<JuryStageProps> = ({ onFightComplete, triggerFight = false }) => {
+export const JuryStage: React.FC<JuryStageProps> = ({
+  onFightComplete,
+  triggerFight = false,
+  showResults = false,
+  discussionResult = null,
+}) => {
   const { selectedJuries } = useApp();
-  const sceneHook = useThreeJsScene('jury-canvas');
+  const sceneHook = useThreeJsScene('jury-canvas', showResults);
   const blobsInitializedRef = useRef(false);
 
   // Initialize blobs on mount
@@ -23,27 +31,30 @@ export const JuryStage: React.FC<JuryStageProps> = ({ onFightComplete, triggerFi
       return;
     }
 
-    console.log('Initializing blobs with selectedJuries:', selectedJuries);
+    // Add blobs to scene in two rows
+    const blobsPerRow = Math.ceil(selectedJuries.length / 2);
+    const rowPositions = [0.2, -0.4]; // Y positions for top and bottom rows
 
-    // Add blobs to scene in a 3x3 grid
     let index = 0;
-    for (let x = -1; x <= 1; x++) {
-      for (let y = -1; y <= 1; y++) {
+    for (let row = 0; row < 2; row++) {
+      const rowSize = row === 0 ? blobsPerRow : selectedJuries.length - blobsPerRow;
+      const spacing = 5.3 / (rowSize + 1); // Distribute evenly with padding
+      
+      for (let col = 0; col < rowSize; col++) {
         if (index >= selectedJuries.length) break;
 
         const jury = selectedJuries[index];
         const jitter = {
-          x: (Math.random() - 0.5) * 0.3,
-          y: (Math.random() - 0.5) * 0.3,
+          x: (Math.random() - 0.5) * 0.2,
+          y: (Math.random() - 0.5) * 0.2,
         };
 
         const position = new THREE.Vector3(
-          x * 1.8 + jitter.x,
-          y * 1.2 + jitter.y,
-          Math.random() * 0.5 - 0.25
+          -2.5 + (col + 1) * spacing + jitter.x,
+          rowPositions[row] + jitter.y,
+          (Math.random() * 0.5-1) + (row === 1 ? 1 : 0)
         );
 
-        console.log(`Adding blob ${jury.id} at position`, position);
         sceneHook.addBlob(jury.id, jury.color, position);
         index++;
       }
@@ -75,6 +86,8 @@ export const JuryStage: React.FC<JuryStageProps> = ({ onFightComplete, triggerFi
       <BlobHoverCard 
         juryMember={sceneHook.hoveredBlobInfo.juryMember}
         position={sceneHook.hoveredBlobInfo.screenPosition}
+        showResults={showResults}
+        discussionResult={discussionResult}
       />
     </>
   );

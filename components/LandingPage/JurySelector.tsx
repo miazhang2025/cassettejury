@@ -52,8 +52,8 @@ export const JurySelector: React.FC<JurySelectorProps> = ({
         Select {APP_CONSTANTS.SELECTED_JURIES_COUNT} of {APP_CONSTANTS.MAX_JURIES} jurors
       </div>
 
-      {/* Grid of circular thumbnails - centered */}
-      <div className="flex flex-wrap justify-center gap-3 md:gap-4 flex-1 items-center content-center">
+      {/* Grid of circular thumbnails - 2 rows */}
+      <div className="flex-1 flex items-center justify-center" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '16px', maxWidth: '900px', margin: '0 auto' }}>
         {allJuries.map((jury) => (
           <JurySelectorCard
             key={jury.id}

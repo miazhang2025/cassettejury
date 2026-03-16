@@ -4,13 +4,13 @@ import React from 'react';
 
 export const HeroSection: React.FC = () => {
   return (
-    <div className="px-6 md:px-12 py-8 md:py-10 flex flex-col items-center justify-center" style={{ borderColor: '#CCCCCC', minHeight: '10%' }}>
+    <div className="px-6 md:px-12 py-8 md:py-10 flex flex-col items-center justify-center" style={{ borderColor: '#CCCCCC', minHeight: '8%' }}>
       <h1 className="text-4xl md:text-8xl mb-5 text-center" style={{ color: '#9B0808' }}>
         Cassette Jury
       </h1>
 
       <p
-        className="text-center max-w-80vw mb-4"
+        className="text-center max-w-80vw mb-2"
         style={{ color: '#4a4a4a', fontSize: '12px' }}
       >
 Meet your pocket jury. Cassette Jury is a panel of 11 AI characters — each with their own job, taste, and agenda — ready to weigh in when your team hits a creative deadlock. Submit your question, watch them deliberate, get a verdict. No prototype, no focus group, no budget required.      </p>

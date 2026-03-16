@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
 import { TopBar } from './TopBar';
@@ -8,7 +8,6 @@ import { InputBox } from './InputBox';
 import { ResultBox } from './ResultBox';
 import { StatusBar } from './ControlBar';
 import { SideMenu } from './SideMenu';
-import { LoadingOverlay } from './LoadingOverlay';
 import { JuryStage } from './JuryStage';
 import { APP_CONSTANTS } from '@/config/constants';
 
@@ -24,11 +23,44 @@ export const ExperienceContainer: React.FC = () => {
     setIsAIProcessing,
     apiKey,
     setStage,
+    settings,
   } = useApp();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [triggerFight, setTriggerFight] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Manage background music based on sound settings
+  useEffect(() => {
+    // Create audio element once and reuse it
+    if (!audioRef.current) {
+      const audio = new Audio();
+      audio.src = '/music/Ziv%20Grinberg%20-%20A%20Scary%20Ferris%20Wheel%20Ride.mp3';
+      audio.loop = true;
+      audio.volume = 0.5;
+      audioRef.current = audio;
+    }
+
+    const audio = audioRef.current;
+
+    if (settings.soundEnabled) {
+      // Try to play, with error handling
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((error) => {
+          console.log('Audio playback failed:', error);
+        });
+      }
+    } else {
+      audio.pause();
+      audio.currentTime = 0; // Reset to start when paused
+    }
+
+    return () => {
+      // Don't pause on unmount to keep audio persistent
+    };
+  }, [settings.soundEnabled]);
 
   const handleSubmitQuestion = async (question: string) => {
     // Check if API key exists
@@ -155,22 +187,32 @@ export const ExperienceContainer: React.FC = () => {
       <TopBar onMenuClick={() => setMenuOpen(!menuOpen)} />
 
       {/* Main Content Area - Full screen canvas */}
-      <div className="flex-1 w-full relative overflow-hidden" style={{ minHeight: 0, position: 'relative', zIndex: 0 }}>
+      <div className="flex-1 w-full absolute overflow-hidden" style={{ minHeight: 0, position: 'relative', zIndex: 0 }}>
         {/* Jury Stage (Canvas with Three.js) - fills entire area, z-index 0 */}
-        <JuryStage triggerFight={triggerFight} onFightComplete={handleFightComplete} />
+        <JuryStage
+          triggerFight={triggerFight}
+          onFightComplete={handleFightComplete}
+          showResults={showResults}
+          discussionResult={discussionResult}
+        />
 
         {/* Input or Result Box (floating, overlaid on canvas, z-index 30) */}
         {!showResults && <InputBox onSubmit={handleSubmitQuestion} isLoading={isAIProcessing} />}
-        {showResults && <ResultBox result={discussionResult} showResult={showResults} />}
-
-        {/* Loading Overlay (z-index 40) */}
-        <LoadingOverlay isVisible={isAIProcessing} />
+        {showResults && (
+          <ResultBox
+            result={discussionResult}
+            showResult={showResults}
+            onRetry={handleRetry}
+            onBackToSelection={handleBackToSelection}
+          />
+        )}
       </div>
 
       {/* Control Bar - z-index 20 */}
       <StatusBar
         isProcessing={isAIProcessing}
         showResults={showResults}
+        discussionResult={discussionResult}
       />
 
       {/* Side Menu - z-index 50 */}

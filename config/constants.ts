@@ -8,8 +8,8 @@ export const APP_CONSTANTS = {
   API_KEY_PREFIX: 'sk-ant-',
 
   // Animation timings
-  FIGHT_DURATION_MS: 3500, // 3.5 seconds fight animation
-  RESULT_SHOW_DELAY_MS: 500, // Delay before showing results
+  FIGHT_DURATION_MS: 2000, // 2 seconds fight animation
+  RESULT_SHOW_DELAY_MS: 0, // Delay before showing results
   TRANSITION_DURATION_MS: 300, // UI transition duration
 
   // Physics
@@ -23,7 +23,7 @@ export const APP_CONSTANTS = {
   TOOLTIP_DELAY_MS: 200,
 
   // Three.js
-  CANVAS_FOV: 75,
+  CANVAS_FOV: 20,
   CANVAS_NEAR: 0.1,
   CANVAS_FAR: 1000,
 

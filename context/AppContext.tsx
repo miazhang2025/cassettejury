@@ -21,7 +21,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [isAIProcessing, setIsAIProcessing] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [settings, setSettings] = useState<AppSettings>({
-    soundEnabled: false,
+    soundEnabled: true,
     theme: 'light',
   });
 
