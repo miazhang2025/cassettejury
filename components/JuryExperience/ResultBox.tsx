@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { DiscussionResult } from '@/types/app';
 
 interface ResultBoxProps {
@@ -20,6 +21,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
   onRetry,
   onBackToSelection,
 }) => {
+  const router = useRouter();
   if (!showResult || !result) return null;
 
   // Add keyframes style to document
@@ -49,14 +51,16 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
       <div
         className="fixed right-0 top-0 h-screen w-80 overflow-y-auto flex flex-col shadow-lg"
         style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.98)',
+          backgroundImage: 'url(/sidebar.webp)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
           borderLeft: '2px solid #ffb3b3',
           zIndex: 30,
           pointerEvents: 'auto',
           ...slideInStyle,
         }}
       >
-        <div className="p-6 space-y-4 flex-1">
+        <div className="p-10 space-y-4 flex-1">
           <h2 className="text-2xl font-bold" style={{ color: '#9B0808' }}>
             Error
           </h2>
@@ -72,7 +76,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
         </div>
 
         {/* Button Footer */}
-        <div className="p-6 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
+        <div className="p-10 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
           <button
             onClick={onRetry}
             className="w-full px-4 py-3 rounded font-semibold text-base transition-colors"
@@ -90,7 +94,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
             Ask Again
           </button>
           <button
-            onClick={onBackToSelection}
+            onClick={() => router.push('/')}
             className="w-full px-4 py-3 rounded font-semibold text-base transition-colors"
             style={{
               backgroundColor: '#9B0808',
@@ -122,14 +126,16 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
     <div
       className="fixed right-0 top-0 h-screen w-80 overflow-y-auto flex flex-col shadow-lg"
       style={{
-        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        backgroundImage: 'url(/sidebar.webp)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
         borderLeft: '2px solid #CCCCCC',
         zIndex: 30,
         pointerEvents: 'auto',
         ...slideInStyle,
       }}
     >
-      <div className="p-6 space-y-6 flex-1">
+      <div className="p-10 space-y-6 flex-1">
         {/* Summary */}
         <div>
           <p className="text-sm" style={{ color: '#4a4a4a' }}>
@@ -148,7 +154,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
         )}
 
         {/* Vote breakdown */}
-        <div className="border-t pt-4" style={{ borderColor: '#CCCCCC' }}>
+        <div className=" pt-4" >
           <p className="text-sm font-medium mb-3" style={{ color: '#4a4a4a' }}>
             Jury breakdown:
           </p>
@@ -171,7 +177,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
       </div>
 
       {/* Button Footer */}
-      <div className="p-6 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
+      <div className="p-10 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
         <button
           onClick={onRetry}
           className="w-full px-4 py-3 rounded font-semibold text-base transition-colors"
@@ -189,7 +195,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
           Ask Again
         </button>
         <button
-          onClick={onBackToSelection}
+          onClick={() => router.push('/')}
           className="w-full px-4 py-3 rounded font-semibold text-base transition-colors"
           style={{
             backgroundColor: '#9B0808',

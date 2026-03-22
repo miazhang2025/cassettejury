@@ -8,7 +8,7 @@ export const APP_CONSTANTS = {
   API_KEY_PREFIX: 'sk-ant-',
 
   // Animation timings
-  FIGHT_DURATION_MS: 2000, // 2 seconds fight animation
+  FIGHT_DURATION_MS: 40000,// 3.5 seconds fight animation
   RESULT_SHOW_DELAY_MS: 0, // Delay before showing results
   TRANSITION_DURATION_MS: 300, // UI transition duration
 

@@ -10,7 +10,7 @@ export interface HoveredBlobInfo {
   screenPosition: { x: number; y: number } | null;
 }
 
-export const useThreeJsScene = (canvasElementId: string, showResults: boolean = false) => {
+export const useThreeJsScene = (canvasElementId: string, showResults: boolean = false, discussionResult: DiscussionResult | null = null) => {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -21,6 +21,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
   const mouseRef = useRef(new THREE.Vector2());
   const originalBlobPositionsRef = useRef<Map<BlobGeometry, THREE.Vector3>>(new Map());
   const modelCacheRef = useRef<Map<string, THREE.Group>>(new Map());
+  const animationCacheRef = useRef<Map<string, THREE.AnimationClip[]>>(new Map());
   const gltfLoaderRef = useRef<GLTFLoader | null>(null);
   const stageRef = useRef<THREE.Group | null>(null);
   const blobBasePositionsRef = useRef<Map<BlobGeometry, THREE.Vector3>>(new Map());
@@ -62,7 +63,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
 
   // Apply position offset when results show/hide
   useEffect(() => {
-    const offsetX = showResults ? -1 : 0;
+    const offsetX = showResults && discussionResult ? -1 : 0;
 
     // Apply offset to stage
     if (stageRef.current) {
@@ -75,7 +76,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
         blob.mesh.position.x = basePos.x + offsetX;
       }
     }
-  }, [showResults]);
+  }, [showResults, discussionResult]);
 
   const initializeScene = (width: number, height: number, canvas: HTMLCanvasElement) => {
     // Set canvas pixel dimensions
@@ -273,7 +274,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       cameraDistance += (targetDistance - cameraDistance) * SMOOTHING_FACTOR;
 
       // Calculate camera shift based on whether results are showing
-      const cameraShiftX = showResults ? -2 : 0; // Shift left by 2 units when results show
+      const cameraShiftX = showResults && discussionResult ? -2 : 0; // Shift left by 2 units when results show
 
       // Subtle camera animation on load - from facing down to facing the box
       if (cameraAnimationTime < CAMERA_ANIMATION_DURATION) {
@@ -302,8 +303,8 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       // Always look at the center of the box, shifted when results show
       camera.lookAt(cameraShiftX, 0, 0);
 
-      // Update physics - DISABLED: keep blobs static
-      // physicsRef.current!.update();
+      // Update physics
+      physicsRef.current!.update();
 
       // Handle dragging - DISABLED: blobs stay in place
       // if (isDragging && draggedBlob) {
@@ -420,6 +421,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     if (modelCacheRef.current.has(modelPath)) {
       const cachedModel = modelCacheRef.current.get(modelPath)!;
       const clonedModel = cachedModel.clone();
+      const cachedAnimations = animationCacheRef.current.get(modelPath) || [];
       
       const blob = new BlobGeometry(color, position, clonedModel);
       if (blob.mesh) {
@@ -429,14 +431,18 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
         originalBlobPositionsRef.current.set(blob, position.clone());
         blobBasePositionsRef.current.set(blob, position.clone());
         blobToJuryRef.current.set(blob, juryMember);
+
       }
     } else {
       // Load the model
       loader.load(
         modelPath,
         (gltf) => {
-          // Cache the loaded model
+          // Cache the loaded model and animations
           modelCacheRef.current.set(modelPath, gltf.scene);
+          if (gltf.animations && gltf.animations.length > 0) {
+            animationCacheRef.current.set(modelPath, gltf.animations);
+          }
 
           const clonedModel = gltf.scene.clone();
           const blob = new BlobGeometry(color, position, clonedModel);
@@ -479,7 +485,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     }
   };
 
-  const triggerFight = async (duration: number = 3500): Promise<void> => {
+  const triggerFight = async (duration: number = 30000): Promise<void> => {
     if (!physicsRef.current) return;
 
     physicsRef.current.triggerFight();

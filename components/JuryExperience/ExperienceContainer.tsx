@@ -198,7 +198,7 @@ export const ExperienceContainer: React.FC = () => {
 
         {/* Input or Result Box (floating, overlaid on canvas, z-index 30) */}
         {!showResults && <InputBox onSubmit={handleSubmitQuestion} isLoading={isAIProcessing} />}
-        {showResults && (
+        {showResults && discussionResult && (
           <ResultBox
             result={discussionResult}
             showResult={showResults}

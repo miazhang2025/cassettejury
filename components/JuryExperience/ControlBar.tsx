@@ -16,10 +16,10 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 }) => {
   let statusText = 'Cassette Jury';
   
-  if (isProcessing || showResults) {
-    statusText = 'Jury Deciding';
-  } else if (discussionResult) {
+  if (showResults && discussionResult) {
     statusText = 'Jury Made Decision';
+  } else if (isProcessing || showResults) {
+    statusText = 'Jury Deciding';
   }
 
   return (

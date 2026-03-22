@@ -22,7 +22,7 @@ export const JuryStage: React.FC<JuryStageProps> = ({
   discussionResult = null,
 }) => {
   const { selectedJuries } = useApp();
-  const sceneHook = useThreeJsScene('jury-canvas', showResults);
+  const sceneHook = useThreeJsScene('jury-canvas', showResults, discussionResult);
   const blobsInitializedRef = useRef(false);
 
   // Initialize blobs on mount
@@ -63,14 +63,46 @@ export const JuryStage: React.FC<JuryStageProps> = ({
     blobsInitializedRef.current = true;
   }, [sceneHook.isReady, sceneHook.addBlob, selectedJuries]);
 
-  // Handle fight trigger
+  // Handle fight trigger with looping until discussion result arrives
   useEffect(() => {
     if (!triggerFight || !sceneHook.isReady) return;
 
-    sceneHook.triggerFight(APP_CONSTANTS.FIGHT_DURATION_MS).then(() => {
-      onFightComplete?.();
-    });
-  }, [triggerFight, sceneHook.isReady, onFightComplete]);
+    let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
+
+    const startFight = async () => {
+      if (!isMounted) return;
+
+      try {
+        // Trigger the fight animation
+        await sceneHook.triggerFight(APP_CONSTANTS.FIGHT_DURATION_MS || 3500);
+
+        // If discussion result arrived, stop fighting and call complete
+        if (discussionResult) {
+          if (isMounted) {
+            onFightComplete?.();
+          }
+          return;
+        }
+
+        // If no result yet, restart the fight animation with a small pause
+        if (isMounted) {
+          timeoutId = setTimeout(() => {
+            startFight();
+          }, 300); // Small pause between fight loops
+        }
+      } catch (error) {
+        console.error('Fight animation error:', error);
+      }
+    };
+
+    startFight();
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [triggerFight, sceneHook.isReady, discussionResult, onFightComplete]);
 
   return (
     <>
