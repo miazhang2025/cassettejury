@@ -140,12 +140,6 @@ export class BlobGeometry {
   }
 
   dispose() {
-    // Dispose animation mixer
-    if (this.mixer) {
-      this.mixer.stopAllAction();
-      this.mixer = null;
-    }
-
     if (this.mesh) {
       this.mesh.traverse((child) => {
         if (child instanceof THREE.Mesh) {
