@@ -25,7 +25,6 @@ export class BlobGeometry {
     if (meshOrRadius instanceof THREE.Object3D) {
       // Use the provided mesh/model (loaded model)
       this.mesh = meshOrRadius as unknown as THREE.Mesh;
-      this.animationRoot = meshOrRadius; // Store root for animations
       this.mesh.position.copy(position);
       // Rotate -90 degrees on Y axis
       this.mesh.rotation.y = -Math.PI / 2;
