@@ -41,7 +41,7 @@ export const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose }) => {
 
       {/* Drawer */}
       <div
-        className="fixed left-0 top-0 h-screen w-64 md:w-72 bg-white shadow-lg z-50 overflow-y-auto flex flex-col transition-transform"
+        className="fixed left-0 top-0 h-screen w-full sm:w-64 md:w-72 bg-white shadow-lg z-50 overflow-y-auto flex flex-col transition-transform"
         style={{
           transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
           transitionDuration: '300ms',

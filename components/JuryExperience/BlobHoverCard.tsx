@@ -24,39 +24,58 @@ export const BlobHoverCard: React.FC<BlobHoverCardProps> = ({
     (vote) => vote.name.toLowerCase() === juryMember.name.toLowerCase()
   );
 
+  // Calculate viewport-aware positioning to prevent offscreen tooltips
+  const cardWidth = Math.min(350, window.innerWidth - 40);
+  const cardHeight = 280;
+  let adjustedX = position.x;
+  let adjustedY = position.y;
+
+  // Prevent horizontal overflow
+  if (position.x + cardWidth / 2 > window.innerWidth - 20) {
+    adjustedX = window.innerWidth - cardWidth / 2 - 20;
+  }
+  if (position.x - cardWidth / 2 < 20) {
+    adjustedX = cardWidth / 2 + 20;
+  }
+
+  // Prevent vertical overflow
+  if (position.y - cardHeight < 20) {
+    adjustedY = cardHeight + 20;
+  }
+
   return (
     <div
       style={{
         position: 'fixed',
-        left: `${position.x}px`,
-        top: `${position.y}px`,
+        left: `${adjustedX}px`,
+        top: `${adjustedY}px`,
         zIndex: 100,
         pointerEvents: 'none',
         transform: 'translate(-50%, -100%)',
       }}
     >
       <div
-        className="rounded-lg p-3"
+        className="rounded-lg p-2 sm:p-3"
         style={{
           backgroundImage: 'url(/blobcard.webp)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          minWidth: '220px',
-          maxWidth: '350px',
+          minWidth: '200px',
+          maxWidth: 'min(350px, 85vw)',
           marginBottom: '10px',
-          paddingLeft: '50px',
-          paddingRight: '15px',
-          paddingBottom: '30px',
-          paddingTop: '30px',
+          paddingLeft: '40px',
+          paddingRight: '12px',
+          paddingBottom: '20px',
+          paddingTop: '20px',
         }}
       >
         {/* Header - Name */}
         <h3
-          className=" text-lg"
+          className="text-base sm:text-lg"
           style={{
             fontFamily: "'Blaka', serif",
             color: juryMember.color,
-            fontSize: '18px',
+            fontSize: 'clamp(14px, 4vw, 18px)',
           }}
         >
           {juryMember.name}
@@ -75,7 +94,7 @@ export const BlobHoverCard: React.FC<BlobHoverCardProps> = ({
 
           {/* Waiting state: Bio */}
           {!showResults && (
-            <p style={{ lineHeight: '1.3', marginTop: '4px' }}>
+            <p style={{ lineHeight: '1.3', marginTop: '4px', fontSize: '10px' }}>
               <span style={{ fontStyle: 'italic' }}>{juryMember.bio}</span>
             </p>
           )}
@@ -101,7 +120,7 @@ export const BlobHoverCard: React.FC<BlobHoverCardProps> = ({
                     {juryVote.stance}
                   </span>
                 </p>
-                <p style={{ lineHeight: '1.3', marginTop: '4px' }}>
+                <p style={{ lineHeight: '1.3', marginTop: '4px', fontSize: '9px' }}>
                   <span style={{ fontWeight: 600 }}>Reason:</span> {juryVote.reason}
                 </p>
               </div>

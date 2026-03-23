@@ -19,6 +19,13 @@
   }
 }
 
+/* Responsive font sizing for mobile */
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

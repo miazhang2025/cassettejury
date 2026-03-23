@@ -65,16 +65,16 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
 
   return (
     <div
-      className="px-6 md:px-12 py-4 md:py-6 flex flex-col gap-2 items-center justify-center"
+      className="px-4 sm:px-6 md:px-12 py-3 sm:py-4 md:py-6 flex flex-col gap-2 items-center justify-center"
       style={{ borderColor: '#CCCCCC', minHeight: '10vh' }}
       suppressHydrationWarning
     >
 
 
-      <div className="w-full flex flex-row gap-3 items-center justify-center">
+      <div className="w-full flex flex-col sm:flex-row gap-2 sm:gap-3 items-center justify-center">
               <div className="flex items-center gap-2">
-        <label className="block text-xs font-medium" style={{ color: '#1a1a1a' }}>
-          Anthropic Claude API Key
+        <label className="block text-xs sm:text-sm font-medium whitespace-nowrap" style={{ color: '#1a1a1a' }}>
+          API Key
         </label>
         <div className="relative group cursor-help">
           <span 

@@ -49,7 +49,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
   if (result.error) {
     return (
       <div
-        className="fixed right-0 top-0 h-screen w-80 overflow-y-auto flex flex-col shadow-lg"
+        className="fixed inset-0 md:inset-auto md:right-0 h-screen w-full md:w-80 overflow-y-auto flex flex-col shadow-lg"
         style={{
           backgroundImage: 'url(/sidebar.webp)',
           backgroundSize: 'cover',
@@ -58,28 +58,29 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
           zIndex: 30,
           pointerEvents: 'auto',
           ...slideInStyle,
+          top: 'auto',
         }}
       >
-        <div className="p-10 space-y-4 flex-1">
-          <h2 className="text-2xl font-bold" style={{ color: '#9B0808' }}>
+        <div className="p-6 sm:p-10 space-y-4 flex-1">
+          <h2 className="text-xl sm:text-2xl font-bold" style={{ color: '#9B0808' }}>
             Error
           </h2>
-          <p className="text-base" style={{ color: '#c00000' }}>
+          <p className="text-sm sm:text-base" style={{ color: '#c00000' }}>
             {result.error}
           </p>
           {result.details && (
-            <details className="text-sm" style={{ color: '#666666' }}>
+            <details className="text-xs sm:text-sm" style={{ color: '#666666' }}>
               <summary>Details</summary>
-              <pre style={{ overflow: 'auto', marginTop: '8px', fontSize: '12px' }}>{result.details}</pre>
+              <pre style={{ overflow: 'auto', marginTop: '8px', fontSize: '11px' }}>{result.details}</pre>
             </details>
           )}
         </div>
 
         {/* Button Footer */}
-        <div className="p-10 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
+        <div className="p-6 sm:p-10 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
           <button
             onClick={onRetry}
-            className="w-full px-4 py-3 rounded font-semibold text-base transition-colors"
+            className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
             style={{
               backgroundColor: '#9B0808',
               color: '#E5E5E1',
@@ -95,7 +96,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
           </button>
           <button
             onClick={() => router.push('/')}
-            className="w-full px-4 py-3 rounded font-semibold text-base transition-colors"
+            className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
             style={{
               backgroundColor: '#9B0808',
               color: '#E5E5E1',
@@ -124,7 +125,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
 
   return (
     <div
-      className="fixed right-0 top-0 h-screen w-80 overflow-y-auto flex flex-col shadow-lg"
+      className="fixed inset-0 md:inset-auto md:right-0 md:top-0 h-screen w-full md:w-80 overflow-y-auto flex flex-col shadow-lg"
       style={{
         backgroundImage: 'url(/sidebar.webp)',
         backgroundSize: 'cover',
@@ -135,32 +136,32 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
         ...slideInStyle,
       }}
     >
-      <div className="p-10 space-y-6 flex-1">
+      <div className="p-6 sm:p-10 space-y-6 flex-1">
         {/* Summary */}
         <div>
-          <p className="text-sm" style={{ color: '#4a4a4a' }}>
+          <p className="text-xs sm:text-sm" style={{ color: '#4a4a4a' }}>
             The jury has decided:
           </p>
-          <p className="text-2xl font-bold" style={{ color: '#9B0808' }}>
+          <p className="text-xl sm:text-2xl font-bold" style={{ color: '#9B0808' }}>
             {result.summary}
           </p>
         </div>
 
         {/* Verdict narrative */}
         {result.verdict_narrative && (
-          <p className="text-base" style={{ color: '#1a1a1a', lineHeight: '1.6' }}>
+          <p className="text-sm sm:text-base" style={{ color: '#1a1a1a', lineHeight: '1.6' }}>
             {result.verdict_narrative}
           </p>
         )}
 
         {/* Vote breakdown */}
         <div className=" pt-4" >
-          <p className="text-sm font-medium mb-3" style={{ color: '#4a4a4a' }}>
+          <p className="text-xs sm:text-sm font-medium mb-3" style={{ color: '#4a4a4a' }}>
             Jury breakdown:
           </p>
           <div className="space-y-2">
             {votePercentages.map(({ option, percentage, count }) => (
-              <div key={option} className="text-sm flex justify-between items-center">
+              <div key={option} className="text-xs sm:text-sm flex justify-between items-center">
                 <span style={{ color: '#1a1a1a' }}>{option}</span>
                 <span style={{ color: '#9B0808', fontWeight: 600 }}>
                   {percentage}% ({count})
@@ -171,16 +172,16 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
         </div>
 
         {/* Hover hint */}
-        <p className="text-sm text-center" style={{ color: '#8a8a8a' }}>
+        <p className="text-xs sm:text-sm text-center" style={{ color: '#8a8a8a' }}>
           👆 Hover over blobs to see individual jury member verdicts
         </p>
       </div>
 
       {/* Button Footer */}
-      <div className="p-10 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
+      <div className="p-6 sm:p-10 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
         <button
           onClick={onRetry}
-          className="w-full px-4 py-3 rounded font-semibold text-base transition-colors"
+          className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
           style={{
             backgroundColor: '#9B0808',
             color: '#E5E5E1',
@@ -196,7 +197,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
         </button>
         <button
           onClick={() => router.push('/')}
-          className="w-full px-4 py-3 rounded font-semibold text-base transition-colors"
+          className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
           style={{
             backgroundColor: '#9B0808',
             color: '#E5E5E1',

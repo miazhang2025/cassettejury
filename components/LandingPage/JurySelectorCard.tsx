@@ -221,8 +221,8 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
       <div
         className="rounded-full overflow-hidden cursor-pointer transition-all"
         style={{
-          width: '140px',
-          height: '140px',
+          width: 'clamp(100px, 25vw, 140px)',
+          height: 'clamp(100px, 25vw, 140px)',
           border: `${borderWidth}px solid ${borderColor}`,
           opacity: maxSelected && !isSelected ? 0.5 : 1,
           pointerEvents: maxSelected && !isSelected ? 'none' : 'auto',
@@ -234,7 +234,7 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
         <canvas ref={canvasRef} className="w-full h-full" />
       </div>
 
-      {/* Hover card */}
+      {/* Hover card - responsive sizing for mobile */}
       {showCard && (
         <div
           style={{
@@ -253,7 +253,7 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               minWidth: '220px',
-              maxWidth: '350px',
+              maxWidth: 'min(350px, 90vw)',
               paddingLeft: '50px',
               paddingRight: '15px',
               paddingBottom: '30px',
@@ -266,7 +266,7 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
               style={{
                 fontFamily: "'Blaka', serif",
                 color: '#9B0808',
-                fontSize: '18px',
+                fontSize: 'clamp(14px, 4vw, 18px)',
               }}
             >
               {jury.name}

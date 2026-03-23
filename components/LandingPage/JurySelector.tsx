@@ -44,7 +44,7 @@ export const JurySelector: React.FC<JurySelectorProps> = ({
 
   return (
     <div
-      className="flex-1 overflow-hidden flex flex-col px-4 md:px-8 py-3 md:py-4"
+      className="flex-1 overflow-hidden flex flex-col px-3 sm:px-4 md:px-8 py-2 sm:py-3 md:py-4"
       style={{ borderColor: '#CCCCCC' }}
     >
       {/* Counter */}
@@ -52,8 +52,8 @@ export const JurySelector: React.FC<JurySelectorProps> = ({
         Select {APP_CONSTANTS.SELECTED_JURIES_COUNT} of {APP_CONSTANTS.MAX_JURIES} jurors
       </div>
 
-      {/* Grid of circular thumbnails - 2 rows */}
-      <div className="flex-1 flex items-center justify-center" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '16px', maxWidth: '900px', margin: '0 auto' }}>
+      {/* Grid of circular thumbnails - responsive: 2 cols mobile, 3 tablet, 6 desktop */}
+      <div className="flex-1 overflow-y-auto w-full" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px', maxWidth: '900px', margin: '0 auto', paddingRight: '8px', alignContent: 'start' }}>
         {allJuries.map((jury) => (
           <JurySelectorCard
             key={jury.id}

@@ -24,13 +24,13 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
   return (
     <div
-      className="h-24 md:h-20 flex items-center justify-center bg-transparent fixed bottom-5 left-0 right-0 w-full mb-6"
+      className="h-20 md:h-24 flex items-center justify-center bg-transparent fixed bottom-3 md:bottom-5 left-0 right-0 w-full mb-4 md:mb-6"
     >
       <h1
-        className="text-4xl md:text-8xl text-center"
+        className="text-2xl sm:text-4xl md:text-8xl text-center"
         style={{
           color: '#9B0808',
-          WebkitTextStroke: '20px #E5E5E1',
+          WebkitTextStroke: 'clamp(2px, 1vw, 20px) #E5E5E1',
           paintOrder: 'stroke fill',
         }}
       >
