@@ -61,19 +61,51 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     return () => clearTimeout(timeoutId);
   }, [canvasElementId]);
 
-  // Apply position offset when results show/hide
+  // Apply position offset when results show/hide (when not fighting)
   useEffect(() => {
-    const offsetX = showResults && discussionResult ? -1 : 0;
-
-    // Apply offset to stage
-    if (stageRef.current) {
-      stageRef.current.position.x = offsetX;
+    if (!showResults) {
+      const offsetX = 0;
+      
+      // Apply offset to stage
+      if (stageRef.current) {
+        stageRef.current.position.x = offsetX;
+      }
+      
+      // Apply offset to all blobs
+      for (const [blob, basePos] of blobBasePositionsRef.current.entries()) {
+        if (blob.mesh) {
+          blob.mesh.position.x = basePos.x + offsetX;
+        }
+      }
     }
+  }, [showResults]);
 
-    // Apply offset to all blobs
-    for (const [blob, basePos] of blobBasePositionsRef.current.entries()) {
-      if (blob.mesh) {
-        blob.mesh.position.x = basePos.x + offsetX;
+  // Stop fight when results are shown
+  useEffect(() => {
+    if (showResults && discussionResult && physicsRef.current) {
+      physicsRef.current.stopFight();
+      physicsRef.current.resetBlobs(originalBlobPositionsRef.current);
+      
+      // Reset blob rotation to initial loaded state
+      for (const blob of blobsRef.current.values()) {
+        if (blob.mesh) {
+          blob.mesh.rotation.set(0, -Math.PI / 2, 0);
+        }
+      }
+      
+      // Apply position offset after resetting blobs
+      const offsetX = -1;
+      
+      // Apply offset to stage
+      if (stageRef.current) {
+        stageRef.current.position.x = offsetX;
+      }
+      
+      // Apply offset to all blobs
+      for (const [blob, basePos] of blobBasePositionsRef.current.entries()) {
+        if (blob.mesh) {
+          blob.mesh.position.x = basePos.x + offsetX;
+        }
       }
     }
   }, [showResults, discussionResult]);
@@ -90,7 +122,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
 
     // Camera - perspective for true 3D
     const camera = new THREE.PerspectiveCamera(20, width / height, 0.1, 1000);
-    camera.position.z = 8;
+    camera.position.z = 12;
     camera.position.y = 4;
     camera.lookAt(0, 2, 0);
     cameraRef.current = camera;
@@ -165,11 +197,11 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
 
     // Camera navigation controls - declare before handlers that use them
     let cameraTheta = 0; // Horizontal angle (around Y axis)
-    let cameraDistance = 5; // Distance from center
+    let cameraDistance = 12; // Distance from center (normal viewing distance, matches initial z=12)
     let targetTheta = cameraTheta;
     let targetDistance = cameraDistance;
-    const MIN_DISTANCE = 6;
-    const MAX_DISTANCE = 10;
+    const MIN_DISTANCE = 8;
+    const MAX_DISTANCE = 18;
     const CAMERA_ROTATION_SPEED = 0.005;
     const SMOOTHING_FACTOR = 0.1; // Interpolation factor for smooth movement
 
@@ -262,12 +294,15 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     let animationId: number;
     let hoveredBlob: BlobGeometry | null = null;
     let cameraAnimationTime = 0;
-    const CAMERA_ANIMATION_DURATION = 2000; // 2 seconds subtle animation
-    const initialCameraDistance = cameraDistance; // Store initial distance for smooth animation
+    const CAMERA_ANIMATION_DURATION = 2500; // 2.5 seconds pull-back animation
+    const initialCameraDistance = 4; // Start closer for the pull-back effect
     const initialCameraTheta = cameraTheta; // Store initial angle for smooth animation
 
     const animate = () => {
       animationId = requestAnimationFrame(animate);
+
+      // Get time for animations (must be first)
+      const time = Date.now() * 0.001; // Convert to seconds
 
       // Smooth interpolation for camera angle and distance
       cameraTheta += (targetTheta - cameraTheta) * SMOOTHING_FACTOR;
@@ -276,32 +311,60 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       // Calculate camera shift based on whether results are showing
       const cameraShiftX = showResults && discussionResult ? -2 : 0; // Shift left by 2 units when results show
 
-      // Subtle camera animation on load - from facing down to facing the box
+      // Subtle camera animation on load - pull back from close-up to normal distance
       if (cameraAnimationTime < CAMERA_ANIMATION_DURATION) {
         const progress = cameraAnimationTime / CAMERA_ANIMATION_DURATION;
         const easeProgress = 1 - Math.cos(progress * Math.PI) / 2; // easeInOutCosine
 
-        // Smoothly transition from starting position to current interactive position
+        // Pull back effect: start at initialCameraDistance (3) and zoom out to targetDistance (5)
         const startDistance = initialCameraDistance;
-        const endDistance = cameraDistance;
+        const endDistance = targetDistance;
 
         const lerpedDistance = startDistance + (endDistance - startDistance) * easeProgress;
 
         // Calculate camera position based on angle and distance, with Y offset
         camera.position.x = Math.sin(cameraTheta) * lerpedDistance + cameraShiftX;
-        camera.position.y = 3; // Keep some height
+        camera.position.y = 4; // Match initial camera y position
         camera.position.z = Math.cos(cameraTheta) * lerpedDistance;
 
         cameraAnimationTime += 16; // Approximate frame time
       } else {
+        // Synchronize camera distance when animation ends to prevent jump
+        if (cameraAnimationTime >= CAMERA_ANIMATION_DURATION && cameraDistance !== targetDistance) {
+          cameraDistance = targetDistance;
+        }
+        
         // After animation, use interactive camera controls
         camera.position.x = Math.sin(cameraTheta) * cameraDistance + cameraShiftX;
-        camera.position.y = 3; // Keep some height
+        camera.position.y = 4; // Match initial camera y position
         camera.position.z = Math.cos(cameraTheta) * cameraDistance;
       }
 
       // Always look at the center of the box, shifted when results show
       camera.lookAt(cameraShiftX, 0, 0);
+
+      // Apply camera shake during fighting
+      let isAnyBlobFighting = false;
+      for (const blob of blobsRef.current.values()) {
+        if (blob.fightMode) {
+          isAnyBlobFighting = true;
+          break;
+        }
+      }
+
+      if (isAnyBlobFighting) {
+        const shakeAmount = 0.15; // Shake intensity
+        const baseShakeFrequency = 4; // Base frequency
+        // Dynamic frequency that varies over time between 7.7-14.3 Hz
+        const shakeFrequency = baseShakeFrequency * (0.5 + 0.3 * Math.sin(time * 0.8));
+        const shakeX = Math.sin(time * shakeFrequency) * shakeAmount;
+        const shakeY = Math.cos(time * shakeFrequency * 0.7) * shakeAmount;
+        const shakeZ = Math.sin(time * shakeFrequency * 0.5) * shakeAmount;
+        
+        camera.position.x += shakeX;
+        camera.position.y += shakeY;
+        camera.position.z += shakeZ;
+      }
 
       // Update physics
       physicsRef.current!.update();
@@ -370,7 +433,6 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       }
 
       // Apply scale animation to blobs
-      const time = Date.now() * 0.001; // Convert to seconds
       for (const blob of blobsRef.current.values()) {
         if (blob.mesh) {
           // Create a pulsing effect with sine wave: ranges from 0.95 to 1.05
@@ -485,17 +547,14 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     }
   };
 
-  const triggerFight = async (duration: number = 30000): Promise<void> => {
+  const triggerFight = async (): Promise<void> => {
     if (!physicsRef.current) return;
 
     physicsRef.current.triggerFight();
 
     return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        physicsRef.current?.stopFight();
-        physicsRef.current?.resetBlobs(originalBlobPositionsRef.current);
-        resolve();
-      }, duration);
+      // Fight will be stopped by the useEffect when results are shown
+      resolve();
     });
   };
 

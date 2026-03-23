@@ -16,7 +16,7 @@ export const APP_CONSTANTS = {
   PHYSICS_GRAVITY: 9.8,
   PHYSICS_STEP_SIZE: 1 / 60,
   PHYSICS_DAMPING: 0.98,
-  PHYSICS_FIGHT_FORCE: 25, // Force applied during fight animation
+  PHYSICS_FIGHT_FORCE: 60, // Force applied during fight animation
 
   // UI
   MAX_QUESTION_LENGTH: 500,

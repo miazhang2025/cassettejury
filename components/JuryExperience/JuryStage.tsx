@@ -7,6 +7,8 @@ import { useThreeJsScene } from '@/hooks/useThreeJsScene';
 import { BlobHoverCard } from './BlobHoverCard';
 import { APP_CONSTANTS } from '@/config/constants';
 import { DiscussionResult } from '@/types/app';
+import { playSound } from '@/utils/audio';
+import { AUDIO_FILES, VOLUME_DEFAULTS } from '@/config/sounds';
 
 interface JuryStageProps {
   onFightComplete?: () => void;
@@ -21,9 +23,10 @@ export const JuryStage: React.FC<JuryStageProps> = ({
   showResults = false,
   discussionResult = null,
 }) => {
-  const { selectedJuries } = useApp();
+  const { selectedJuries, settings } = useApp();
   const sceneHook = useThreeJsScene('jury-canvas', showResults, discussionResult);
   const blobsInitializedRef = useRef(false);
+  const previousHoveredBlobRef = useRef<string | null>(null);
 
   // Initialize blobs on mount
   useEffect(() => {
@@ -45,8 +48,8 @@ export const JuryStage: React.FC<JuryStageProps> = ({
 
         const jury = selectedJuries[index];
         const jitter = {
-          x: (Math.random() - 0.5) * 0.2,
-          y: (Math.random() - 0.5) * 0.2,
+          x: (Math.random() - 0.5) * 0.1,
+          y: (Math.random() - 0.5) * 0.1,
         };
 
         const position = new THREE.Vector3(
@@ -75,7 +78,7 @@ export const JuryStage: React.FC<JuryStageProps> = ({
 
       try {
         // Trigger the fight animation
-        await sceneHook.triggerFight(APP_CONSTANTS.FIGHT_DURATION_MS || 3500);
+        await sceneHook.triggerFight();
 
         // If discussion result arrived, stop fighting and call complete
         if (discussionResult) {
@@ -103,6 +106,20 @@ export const JuryStage: React.FC<JuryStageProps> = ({
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [triggerFight, sceneHook.isReady, discussionResult, onFightComplete]);
+
+  // Play sound when blob is hovered
+  useEffect(() => {
+    const currentHoveredId = sceneHook.hoveredBlobInfo.juryMember?.id || null;
+
+    // Only play sound if we just started hovering on a new blob
+    if (currentHoveredId && currentHoveredId !== previousHoveredBlobRef.current && settings.soundEnabled) {
+      playSound(AUDIO_FILES.SFX.paper, {
+        volume: VOLUME_DEFAULTS.SFX,
+      });
+    }
+
+    previousHoveredBlobRef.current = currentHoveredId;
+  }, [sceneHook.hoveredBlobInfo.juryMember?.id, settings.soundEnabled]);
 
   return (
     <>

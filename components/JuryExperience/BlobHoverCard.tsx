@@ -36,13 +36,18 @@ export const BlobHoverCard: React.FC<BlobHoverCardProps> = ({
       }}
     >
       <div
-        className="rounded-lg shadow-xl backdrop-blur-sm p-3"
+        className="rounded-lg p-3"
         style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-          borderLeft: `4px solid ${juryMember.color}`,
+          backgroundImage: 'url(/blobcard.webp)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
           minWidth: '220px',
-          maxWidth: '300px',
+          maxWidth: '350px',
           marginBottom: '10px',
+          paddingLeft: '50px',
+          paddingRight: '15px',
+          paddingBottom: '30px',
+          paddingTop: '30px',
         }}
       >
         {/* Header - Name */}

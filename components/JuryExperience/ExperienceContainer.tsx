@@ -10,6 +10,9 @@ import { StatusBar } from './ControlBar';
 import { SideMenu } from './SideMenu';
 import { JuryStage } from './JuryStage';
 import { APP_CONSTANTS } from '@/config/constants';
+import { playSound, stopSound, stopAllSounds, playRandomSound } from '@/utils/audio';
+import { SOUND_FOLDERS, VOLUME_DEFAULTS, AUDIO_FILES } from '@/config/sounds';
+import { useRandomGibberish } from '@/hooks/useRandomGibberish';
 
 export const ExperienceContainer: React.FC = () => {
   const router = useRouter();
@@ -29,38 +32,141 @@ export const ExperienceContainer: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [triggerFight, setTriggerFight] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [fightingAudioFiles, setFightingAudioFiles] = useState<string[]>([]);
+  const [resultAudioFiles, setResultAudioFiles] = useState<string[]>([]);
+  
+  // Audio refs
+  const musicRef = useRef<HTMLAudioElement | null>(null);
+  const currentFightingAudioRef = useRef<HTMLAudioElement | null>(null);
+  const resultAudioRefsRef = useRef<HTMLAudioElement[]>([]);
+  const fightingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Manage background music based on sound settings
+  // Load audio files from folders on mount
   useEffect(() => {
-    // Create audio element once and reuse it
-    if (!audioRef.current) {
-      const audio = new Audio();
-      audio.src = '/music/Ziv%20Grinberg%20-%20A%20Scary%20Ferris%20Wheel%20Ride.mp3';
-      audio.loop = true;
-      audio.volume = 0.5;
-      audioRef.current = audio;
+    const loadAudioFiles = async () => {
+      try {
+        // Load fighting sounds
+        const fightingRes = await fetch(`/api/list-audio-files?folder=${encodeURIComponent(SOUND_FOLDERS.FIGHTING)}`);
+        if (fightingRes.ok) {
+          const data = await fightingRes.json();
+          setFightingAudioFiles(data.files || []);
+        }
+
+        // Load result sounds
+        const resultRes = await fetch(`/api/list-audio-files?folder=${encodeURIComponent(SOUND_FOLDERS.RESULT)}`);
+        if (resultRes.ok) {
+          const data = await resultRes.json();
+          setResultAudioFiles(data.files || []);
+        }
+      } catch (error) {
+        console.error('Error loading audio files:', error);
+      }
+    };
+
+    loadAudioFiles();
+  }, []);
+
+  // Play ambient gibberish during results
+  useRandomGibberish({
+    folderPath: SOUND_FOLDERS.GIBBERISH,
+    enabled: settings.soundEnabled && showResults && discussionResult !== null,
+  });
+
+  // Manage audio lifecycle: music -> fighting -> results
+  useEffect(() => {
+    if (!settings.soundEnabled) {
+      // Stop all audio if sound is disabled
+      stopSound(musicRef.current);
+      stopSound(currentFightingAudioRef.current);
+      stopAllSounds(resultAudioRefsRef.current);
+      return;
     }
 
-    const audio = audioRef.current;
+    // Normal state: play music, stop fighting/results
+    if (!triggerFight && !showResults) {
+      // Stop fighting and result sounds
+      stopSound(currentFightingAudioRef.current);
+      currentFightingAudioRef.current = null;
+      stopAllSounds(resultAudioRefsRef.current);
+      resultAudioRefsRef.current = [];
 
-    if (settings.soundEnabled) {
-      // Try to play, with error handling
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((error) => {
-          console.log('Audio playback failed:', error);
+      // Play/continue music
+      if (!musicRef.current) {
+        musicRef.current = playSound(AUDIO_FILES.MUSIC.main, {
+          loop: true,
+          volume: VOLUME_DEFAULTS.MUSIC,
+        });
+      } else if (musicRef.current.paused) {
+        musicRef.current.play().catch((err) => console.warn('Failed to resume music:', err));
+      }
+    }
+    // Fighting state: play fighting sounds, stop music
+    else if (triggerFight && !showResults) {
+      // Stop music
+      stopSound(musicRef.current);
+      musicRef.current = null;
+
+      // Stop result sounds
+      stopAllSounds(resultAudioRefsRef.current);
+      resultAudioRefsRef.current = [];
+
+      // Play fighting sounds (looping random selection)
+      const playNextFightingSound = () => {
+        if (!triggerFight || showResults || fightingAudioFiles.length === 0) return;
+
+        currentFightingAudioRef.current = playRandomSound(fightingAudioFiles, {
+          loop: true,
+          volume: VOLUME_DEFAULTS.FIGHTING,
+        });
+
+        // Continue looping until state changes
+      };
+
+      // Only play if we have audio files and haven't already started fighting audio
+      if (!currentFightingAudioRef.current && fightingAudioFiles.length > 0) {
+        playNextFightingSound();
+      }
+    }
+    // Results state: play result sounds, stop fighting
+    else if (showResults && discussionResult) {
+      // Stop fighting sounds
+      stopSound(currentFightingAudioRef.current);
+      currentFightingAudioRef.current = null;
+
+      // Play all result sounds in parallel (only once)
+      if (resultAudioRefsRef.current.length === 0 && resultAudioFiles.length > 0) {
+        resultAudioFiles.forEach((audioFile) => {
+          const audio = playSound(audioFile, {
+            loop: false,
+            volume: VOLUME_DEFAULTS.RESULT,
+          });
+          if (audio) {
+            resultAudioRefsRef.current.push(audio);
+          }
         });
       }
-    } else {
-      audio.pause();
-      audio.currentTime = 0; // Reset to start when paused
     }
 
+    // Cleanup fighting timeout
     return () => {
-      // Don't pause on unmount to keep audio persistent
+      if (fightingTimeoutRef.current) {
+        clearTimeout(fightingTimeoutRef.current);
+        fightingTimeoutRef.current = null;
+      }
     };
-  }, [settings.soundEnabled]);
+  }, [triggerFight, showResults, discussionResult, settings.soundEnabled, fightingAudioFiles, resultAudioFiles]);
+
+  // Cleanup all audio on unmount
+  useEffect(() => {
+    return () => {
+      stopSound(musicRef.current);
+      stopSound(currentFightingAudioRef.current);
+      stopAllSounds(resultAudioRefsRef.current);
+      if (fightingTimeoutRef.current) {
+        clearTimeout(fightingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSubmitQuestion = async (question: string) => {
     // Check if API key exists

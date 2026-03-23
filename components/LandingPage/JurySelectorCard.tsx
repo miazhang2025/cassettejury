@@ -4,6 +4,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { JuryMember } from '@/config/juries';
+import { playSound } from '@/utils/audio';
+import { AUDIO_FILES, VOLUME_DEFAULTS } from '@/config/sounds';
+import { useApp } from '@/context/AppContext';
 
 interface JurySelectorCardProps {
   jury: JuryMember;
@@ -18,6 +21,7 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
   onSelect,
   maxSelected = false,
 }) => {
+  const { settings } = useApp();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -45,10 +49,10 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
     rendererRef.current = renderer;
 
     // Lighting
-    const ambientLight = new THREE.AmbientLight('#ffffff', 0.8);
+    const ambientLight = new THREE.AmbientLight('#ffffff', 1.5);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight('#ffffff', 0.8);
+    const keyLight = new THREE.DirectionalLight('#ffffff', 2);
     keyLight.position.set(2, 2, 2);
     scene.add(keyLight);
 
@@ -148,11 +152,24 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
 
   const handleClick = () => {
     if (!maxSelected || isSelected) {
+      // Play click sound
+      if (settings.soundEnabled) {
+        playSound(AUDIO_FILES.SFX.click, {
+          volume: VOLUME_DEFAULTS.SFX,
+        });
+      }
       onSelect(jury);
     }
   };
 
   const handleMouseEnter = () => {
+    // Play hover sound
+    if (settings.soundEnabled) {
+      playSound(AUDIO_FILES.SFX.paper, {
+        volume: VOLUME_DEFAULTS.SFX,
+      });
+    }
+
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const blobCenterX = rect.left + rect.width / 2;
@@ -220,28 +237,63 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
       {/* Hover card */}
       {showCard && (
         <div
-          className="fixed z-50 bg-white rounded-lg p-3 shadow-lg"
           style={{
-            border: '2px solid #9B0808',
-            backgroundColor: '#E5E5E1',
+            position: 'fixed',
             left: `${cardPosition.left}px`,
             top: `${cardPosition.y - 140}px`,
-            transform: cardPosition.transform,
+            zIndex: 50,
             pointerEvents: 'none',
+            transform: cardPosition.transform,
           }}
         >
-          <h3 className="text-md" style={{ color: '#9B0808', fontFamily: "ibm-plex-mono" }}>
-            {jury.name}
-          </h3>
-          <p className="text-xs mt-1" style={{ color: '#4a4a4a' }}>
-            <span className="font-medium">{jury.age}</span> • {jury.pronouns.split('/')[0]}
-          </p>
-          <p className="text-xs font-medium mt-1" style={{ color: '#4a4a4a' }}>
-            {jury.profession}
-          </p>
-          <p className="text-xs mt-2" style={{ color: '#4a4a4a' }}>
-            {jury.bio}
-          </p>
+          <div
+            className="rounded-lg"
+            style={{
+              backgroundImage: 'url(/blobcard.webp)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              minWidth: '220px',
+              maxWidth: '350px',
+              paddingLeft: '50px',
+              paddingRight: '15px',
+              paddingBottom: '30px',
+              paddingTop: '30px',
+            }}
+          >
+            {/* Name */}
+            <h3
+              className="text-lg"
+              style={{
+                fontFamily: "'Blaka', serif",
+                color: '#9B0808',
+                fontSize: '18px',
+              }}
+            >
+              {jury.name}
+            </h3>
+
+            <div className="space-y-1 text-xs" style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#333333' }}>
+              {/* Age */}
+              <p>
+                <span style={{ fontWeight: 600 }}>Age:</span> {jury.age}
+              </p>
+
+              {/* Pronouns */}
+              <p>
+                <span style={{ fontWeight: 600 }}>Pronouns:</span> {jury.pronouns.split('/')[0]}
+              </p>
+
+              {/* Profession */}
+              <p>
+                <span style={{ fontWeight: 600 }}>Role:</span> {jury.profession}
+              </p>
+
+              {/* Bio */}
+              <p style={{ lineHeight: '1.3', marginTop: '4px' }}>
+                <span style={{ fontStyle: 'italic' }}>{jury.bio}</span>
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

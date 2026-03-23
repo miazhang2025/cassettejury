@@ -37,7 +37,7 @@ export const InputBox: React.FC<InputBoxProps> = ({ onSubmit, isLoading }) => {
       style={{
         backgroundColor: 'rgba(255, 255, 255, 0)',
         borderColor: '#cccccc00',
-        top: 'calc(60px + 1.5rem)',
+        top: 'calc(30px + 1rem)',
         zIndex: 30,
         pointerEvents: 'auto',
       }}

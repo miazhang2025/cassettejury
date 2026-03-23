@@ -10,7 +10,7 @@ export const HeroSection: React.FC = () => {
       </h1>
 
       <p
-        className="text-center max-w-40vw mb-2"
+        className="text-center max-w-200 mb-2"
         style={{ color: '#4a4a4a', fontSize: '12px' }}
       >
 Meet your pocket jury. Cassette Jury is a panel of 11 AI characters — each with their own job, taste, and agenda — ready to weigh in when your team hits a creative deadlock. Submit your question, watch them deliberate, get a verdict. No prototype, no focus group, no budget required.      </p>

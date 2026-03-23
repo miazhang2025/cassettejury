@@ -2,6 +2,9 @@
 
 import React, { useState } from 'react';
 import { APP_CONSTANTS } from '@/config/constants';
+import { playSound } from '@/utils/audio';
+import { AUDIO_FILES, VOLUME_DEFAULTS } from '@/config/sounds';
+import { useApp } from '@/context/AppContext';
 
 interface ApiKeyInputProps {
   onApiKeySubmit: (apiKey: string) => void;
@@ -14,6 +17,7 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
   isValid,
   selectedCount,
 }) => {
+  const { settings } = useApp();
   const [apiKey, setApiKey] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -36,6 +40,13 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
     if (selectedCount !== APP_CONSTANTS.SELECTED_JURIES_COUNT) {
       setError(`Please select exactly ${APP_CONSTANTS.SELECTED_JURIES_COUNT} jurors`);
       return;
+    }
+
+    // Play click sound
+    if (settings.soundEnabled) {
+      playSound(AUDIO_FILES.SFX.click, {
+        volume: VOLUME_DEFAULTS.SFX,
+      });
     }
 
     setError('');
@@ -61,9 +72,33 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
 
 
       <div className="w-full flex flex-row gap-3 items-center justify-center">
-              <label className="block text-xs font-medium" style={{ color: '#1a1a1a' }}>
-        Anthropic Claude API Key
-      </label>
+              <div className="flex items-center gap-2">
+        <label className="block text-xs font-medium" style={{ color: '#1a1a1a' }}>
+          Anthropic Claude API Key
+        </label>
+        <div className="relative group cursor-help">
+          <span 
+            className="text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full"
+            style={{ backgroundColor: '#9B0808', color: '#FFFFFF' }}
+          >
+            ?
+          </span>
+          <div 
+            className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-gray-800 text-white text-xs rounded px-3 py-2 z-50"
+            style={{ maxWidth: '250px', whiteSpace: 'normal' }}
+          >
+            Visit <a href="https://claude.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-300">claude.ai</a> → Account → API Keys to create and copy your key. Or send an email to miazhang2025@gmail.com saying something nice and mia will give you a key to play :)
+            <div 
+              className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0"
+              style={{
+                borderLeft: '6px solid transparent',
+                borderRight: '6px solid transparent',
+                borderTop: '6px solid rgb(31, 41, 55)',
+              }}
+            ></div>
+          </div>
+        </div>
+      </div>
         <input
           type="password"
           value={apiKey}
