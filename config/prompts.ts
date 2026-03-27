@@ -31,7 +31,7 @@ export const JURY_RESPONSE_FORMAT = `{
   "discussion": [
     {
       "name": "Jury Member Name",
-      "stance": "Option A | Option B | Undecided",
+      "stance": "Option A | Option B",
       "reason": "2-3 sentences in their voice",
       "quote": "1 punchy sentence that captures their viewpoint"
     }
@@ -41,7 +41,6 @@ export const JURY_RESPONSE_FORMAT = `{
   "votes": {
     "Option A": <number>,
     "Option B": <number>,
-    "Undecided": <number>
   }
 }`;
 

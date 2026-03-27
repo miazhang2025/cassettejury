@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { RefinedCharacter } from '@/types/app';
 import { formatCharacterAsTypeScript } from '@/utils/characterGenerator';
-import GLBViewer from './GLBViewer';
 
 interface ReviewStepProps {
   character: RefinedCharacter;
@@ -81,32 +80,6 @@ export default function ReviewStep({
     document.body.removeChild(element);
   };
 
-  const handleDownloadGLB = () => {
-    try {
-      const glbData = meshUrl.split(',')[1]; // Extract base64
-      const binaryString = atob(glbData);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const blob = new Blob([bytes], { type: 'model/gltf-binary' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${character.id}-model.glb`;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      setExportMessage('3D model downloaded successfully!');
-      setTimeout(() => setExportMessage(''), 3000);
-    } catch (err) {
-      console.error('Error downloading GLB:', err);
-      setError('Failed to download 3D model');
-    }
-  };
-
   return (
     <div>
       <h2 className="mb-2 text-3xl font-bold text-gray-900">Step 6: Final Review & Export</h2>
@@ -177,32 +150,6 @@ export default function ReviewStep({
             </div>
           </div>
         </div>
-      </div>
-
-      {/* 3D Model Preview */}
-      <div className="mt-8 rounded-lg border border-gray-300 bg-white p-6">
-        <h3 className="mb-4 text-lg font-bold text-gray-900">3D Model Preview</h3>
-        {meshUrl ? (
-          <>
-            <GLBViewer glbUrl={meshUrl} characterName={character.name} />
-            <div className="mt-4 flex gap-3">
-              <button
-                onClick={handleDownloadGLB}
-                className="flex-1 rounded-lg bg-green-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-green-700"
-              >
-                ↓ Download GLB Model
-              </button>
-              <div className="flex-1 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-                <p className="font-semibold">✓ Model Ready</p>
-                <p>Click below to download or use in 3D viewers</p>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="flex items-center justify-center h-96 rounded-lg border border-gray-300 bg-gray-50 text-gray-500">
-            No 3D model available
-          </div>
-        )}
       </div>
 
       {/* TypeScript Code Preview */}
