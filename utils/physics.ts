@@ -48,7 +48,7 @@ export class BlobGeometry {
           });
           
           child.material = toonMaterial;
-          child.castShadow = true;
+          child.castShadow = false;
           child.receiveShadow = true;
           
           // Compute normals for smooth shading
@@ -70,7 +70,7 @@ export class BlobGeometry {
 
       this.mesh = new THREE.Mesh(geometry, material);
       this.mesh.position.copy(position);
-      this.mesh.castShadow = true;
+      this.mesh.castShadow = false;
       this.mesh.receiveShadow = true;
     }
     

@@ -6,10 +6,26 @@ interface ImagesRequestBody {
   apiKey: string;
 }
 
-const MOOD_PROMPTS = [
-  'Create a cute claymation-style character blob with a happy, smiling expression. The character should have expressive, friendly eyes and a warm, inviting appearance. Use rounded, soft shapes. Professional digital art style.',
-  'Create a cute claymation-style character blob with a confident, approachable expression. The character should have bright eyes and an assured, friendly appearance. Use rounded, soft shapes. Professional digital art style.',
-];
+/**
+ * Generate mood-based prompts for a character based on their appearance and traits
+ */
+function generateMoodPrompts(character: RefinedCharacter): string[] {
+  const { silhouette, profession, bio, name, age } = character;
+
+  // First mood: Happy/engaged expression
+  const happyPrompt = `Create a claymation-style character blob with the following appearance: ${silhouette}. 
+The character should have a happy, engaged, and friendly expression with bright, expressive eyes and a warm smile. 
+As a ${profession}, this character embodies enthusiasm and approachability. 
+Use rounded, soft shapes that match the described silhouette. Professional digital art style with a clean background.`;
+
+  // Second mood: Thoughtful/confident expression
+  const thoughtfulPrompt = `Create a claymation-style character blob with the following appearance: ${silhouette}. 
+The character should have a thoughtful, confident, and assured expression with intelligent, focused eyes. 
+As a ${profession}, this character embodies wisdom and composure. 
+Use rounded, soft shapes that match the described silhouette. Professional digital art style with a clean background.`;
+
+  return [happyPrompt, thoughtfulPrompt];
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,13 +39,16 @@ export async function POST(request: NextRequest) {
     const images: string[] = [];
     let fallbackToSvg = false;
 
+    // Generate appearance-based prompts for this character
+    const moodPrompts = generateMoodPrompts(character);
+
     // Try to generate real images using Google Gemini 3.1 Flash Image Preview
     for (let i = 0; i < 2; i++) {
       try {
-        const prompt = MOOD_PROMPTS[i];
+        const prompt = moodPrompts[i];
         const colorDescription = character.color || '#6366f1';
 
-        const fullPrompt = `${prompt} Color palette should be dominated by ${colorDescription}. Character should look like a blob/orb with a sclaymation aesthetic in a clean background. `;
+        const fullPrompt = `${prompt} Color palette should be dominated by ${colorDescription}. Character should look like a blob/orb with a claymation aesthetic in a clean background. `;
 
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${apiKey}`,

@@ -26,12 +26,16 @@ export const JuryInfoTooltip: React.FC<JuryInfoTooltipProps> = ({
 }) => {
   if (!isVisible) return null;
 
+  // Add extra vertical offset on mobile to prevent overlap with top UI
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const topOffset = isMobile ? position.y + 40 : position.y + 10;
+
   return (
     <div
       className="fixed z-40 rounded-lg border shadow-lg text-xs pointer-events-none"
       style={{
         left: `${position.x + 10}px`,
-        top: `${position.y + 10}px`,
+        top: `${topOffset}px`,
         backgroundColor: '#FFFFFF',
         borderColor: '#CCCCCC',
         borderWidth: '2px',
