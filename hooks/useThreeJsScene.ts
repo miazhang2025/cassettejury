@@ -10,6 +10,16 @@ export interface HoveredBlobInfo {
   screenPosition: { x: number; y: number } | null;
 }
 
+interface SmokeParticle {
+  mesh: THREE.Mesh;
+  velocity: THREE.Vector3;
+  lifetime: number;
+  maxLifetime: number;
+  active: boolean;
+  baseScale: number;
+  initialOpacity: number;
+}
+
 export const useThreeJsScene = (canvasElementId: string, showResults: boolean = false, discussionResult: DiscussionResult | null = null) => {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -297,6 +307,83 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     canvas.addEventListener('contextmenu', (e) => e.preventDefault()); // Prevent context menu
     canvas.addEventListener('wheel', handleMouseWheel, { passive: false });
 
+    // --- Smoke Particle System ---
+    const PARTICLE_POOL_SIZE = 200;
+    const smokePlaneGeometry = new THREE.PlaneGeometry(1, 1);
+    const particlePool: SmokeParticle[] = [];
+
+    // Pre-load smoke textures (async — available well before fighting starts)
+    const smokeTextures: THREE.Texture[] = [];
+    const smokeTexLoader = new THREE.TextureLoader();
+    ['smoke1', 'smoke2', 'smoke3'].forEach((name) => {
+      smokeTexLoader.load(`/smoke/${name}.png`, (tex) => {
+        smokeTextures.push(tex);
+      });
+    });
+
+    for (let i = 0; i < PARTICLE_POOL_SIZE; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        depthTest: false,
+        side: THREE.DoubleSide,
+      });
+      const mesh = new THREE.Mesh(smokePlaneGeometry, mat);
+      mesh.renderOrder = 10;
+      mesh.visible = false;
+      scene.add(mesh);
+      particlePool.push({
+        mesh,
+        velocity: new THREE.Vector3(),
+        lifetime: 0,
+        maxLifetime: 1,
+        active: false,
+        baseScale: 0.3,
+        initialOpacity: 0.15,
+      });
+    }
+
+    const spawnParticle = (position: THREE.Vector3, isImpact: boolean) => {
+      const particle = particlePool.find((p) => !p.active);
+      if (!particle) return;
+
+      particle.active = true;
+      particle.lifetime = 0;
+      particle.maxLifetime = 0.6 + Math.random() * 0.6; // 0.6 – 1.2 s
+      particle.baseScale = isImpact
+        ? 0.5 + Math.random() * 0.4  // 0.5 – 0.9
+        : 0.3 + Math.random() * 0.3; // 0.3 – 0.6
+      particle.initialOpacity = 0.15 + Math.random() * 0.05; // 0.15 – 0.20
+
+      particle.velocity.set(
+        (Math.random() - 0.5) * 0.6,
+        0.3 + Math.random() * 0.5,
+        (Math.random() - 0.5) * 0.6
+      );
+
+      // Assign random smoke texture and tint color between #C9C3B8 and #C7B89B
+      const mat = particle.mesh.material as THREE.MeshBasicMaterial;
+      if (smokeTextures.length > 0) {
+        mat.map = smokeTextures[Math.floor(Math.random() * smokeTextures.length)];
+        mat.needsUpdate = true;
+      }
+      const lerpFactor = Math.random();
+      mat.color.setRGB(
+        (201 + lerpFactor * (199 - 201)) / 255,
+        (195 + lerpFactor * (184 - 195)) / 255,
+        (184 + lerpFactor * (155 - 184)) / 255
+      );
+
+      particle.mesh.position.copy(position);
+      particle.mesh.scale.setScalar(0.01); // start tiny, expand via update
+      particle.mesh.visible = true;
+      mat.opacity = particle.initialOpacity;
+    };
+
+    let smokeFrameCounter = 0;
+    // --- End Smoke Particle System setup ---
+
     let animationId: number;
     let hoveredBlob: BlobGeometry | null = null;
     let cameraAnimationTime = 0;
@@ -359,10 +446,10 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       }
 
       if (isAnyBlobFighting) {
-        const shakeAmount = 0.01; // Shake intensity (very mild effect)
+        const shakeAmount = 0.03; // Shake intensity (very mild effect)
         const baseShakeFrequency = 1; // Base frequency
         // Dynamic frequency that varies over time between 7.7-14.3 Hz
-        const shakeFrequency = baseShakeFrequency * (Math.sin(time * 0.5));
+        const shakeFrequency = baseShakeFrequency * (Math.sin(time * 0.01));
 
         // const shakeFrequency = baseShakeFrequency * 1 ;
 
@@ -373,6 +460,66 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
         camera.position.x += shakeX;
         camera.position.y += shakeY;
         camera.position.z += shakeZ;
+      }
+
+      // --- Smoke particle spawning (only during blob fighting) ---
+      smokeFrameCounter++;
+      if (isAnyBlobFighting) {
+        const blobs = Array.from(blobsRef.current.values());
+
+        // Ambient smoke: 1 particle per blob every 6 frames
+        if (smokeFrameCounter % 6 === 0) {
+          for (const blob of blobs) {
+            const pos = blob.getWorldPosition().add(
+              new THREE.Vector3(
+                (Math.random() - 0.5) * 0.6,
+                (Math.random() - 0.5) * 0.4,
+                (Math.random() - 0.5) * 0.6
+              )
+            );
+            spawnParticle(pos, false);
+          }
+        }
+
+        // Impact burst: 2-3 particles at near-collision midpoints every 3 frames
+        if (smokeFrameCounter % 3 === 0) {
+          for (let i = 0; i < blobs.length; i++) {
+            for (let j = i + 1; j < blobs.length; j++) {
+              const posA = blobs[i].getWorldPosition();
+              const posB = blobs[j].getWorldPosition();
+              const threshold = blobs[i].colliderRadius + blobs[j].colliderRadius + 0.5;
+              if (posA.distanceTo(posB) < threshold) {
+                const mid = posA.clone().add(posB).multiplyScalar(0.5);
+                const burstCount = 2 + Math.floor(Math.random() * 2); // 2 or 3
+                for (let k = 0; k < burstCount; k++) {
+                  spawnParticle(mid.clone(), true);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // --- Smoke particle update (all active particles, even after fight ends) ---
+      const smokeDelta = 0.016;
+      for (const particle of particlePool) {
+        if (!particle.active) continue;
+
+        particle.lifetime += smokeDelta;
+        if (particle.lifetime >= particle.maxLifetime) {
+          particle.active = false;
+          particle.mesh.visible = false;
+          continue;
+        }
+
+        const t = particle.lifetime / particle.maxLifetime;
+        const currentScale = particle.baseScale * (0.2 + t * 1.0);
+        const currentOpacity = particle.initialOpacity * (1 - t);
+
+        particle.mesh.scale.setScalar(currentScale);
+        (particle.mesh.material as THREE.MeshBasicMaterial).opacity = currentOpacity;
+        particle.mesh.position.addScaledVector(particle.velocity, smokeDelta);
+        particle.mesh.lookAt(camera.position);
       }
 
       // Update physics
@@ -467,6 +614,13 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       canvas.removeEventListener('wheel', handleMouseWheel);
       cancelAnimationFrame(animationId);
       renderer.dispose();
+
+      // Dispose smoke particle pool
+      smokePlaneGeometry.dispose();
+      for (const particle of particlePool) {
+        scene.remove(particle.mesh);
+        (particle.mesh.material as THREE.MeshBasicMaterial).dispose();
+      }
     };
   };
 
