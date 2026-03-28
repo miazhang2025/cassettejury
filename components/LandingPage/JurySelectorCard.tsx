@@ -318,7 +318,7 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
               backgroundImage: 'url(/blobcard.webp)',
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              minWidth: '220px',
+              minWidth: '300px',
               maxWidth: 'min(350px, 90vw)',
               paddingLeft: '50px',
               paddingRight: '15px',
