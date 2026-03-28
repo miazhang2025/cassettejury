@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Cassette Jury",
-  description: "Cassette Jury is a creative decision-support toy. It is a panel of 11 AI-simulated characters — each with their own job, taste, and agenda — who act as your on-demand jury when you hit a creative deadlock. Submit an open-ended question, watch them deliberate, and get a verdict.",
+  description: "Cassette Jury is a creative decision-support toy. It is a panel of several AI-simulated characters — each with their own job, taste, and agenda — who act as your on-demand jury when you hit a creative deadlock. Submit an open-ended question, watch them deliberate, and get a verdict.",
 };
 
 export const viewport: Viewport = {
