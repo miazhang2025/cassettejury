@@ -7,9 +7,10 @@ import { div } from 'three/src/nodes/tsl/TSLBase.js';
 interface InputBoxProps {
   onSubmit: (question: string) => void;
   isLoading: boolean;
+  style?: React.CSSProperties;
 }
 
-export const InputBox: React.FC<InputBoxProps> = ({ onSubmit, isLoading }) => {
+export const InputBox: React.FC<InputBoxProps> = ({ onSubmit, isLoading, style }) => {
   const [question, setQuestion] = useState('');
   const [charCount, setCharCount] = useState(0);
 
@@ -40,6 +41,7 @@ export const InputBox: React.FC<InputBoxProps> = ({ onSubmit, isLoading }) => {
         top: 'calc(30px + 1rem)',
         zIndex: 30,
         pointerEvents: 'auto',
+        ...style,
       }}
     >
       <div className="p-3 sm:p-4 md:p-6">

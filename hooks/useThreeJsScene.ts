@@ -117,7 +117,13 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
 
     // Scene setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#9B0808');
+    
+    // Load background image
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load('/velvet-bg.png', (texture) => {
+      scene.background = texture;
+    });
+    
     sceneRef.current = scene;
 
     // Camera - perspective for true 3D

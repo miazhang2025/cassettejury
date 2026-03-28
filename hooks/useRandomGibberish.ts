@@ -37,13 +37,18 @@ export function useRandomGibberish({
         if (response.ok) {
           const data = await response.json();
           setAudioFiles(data.files || []);
+        } else {
+          console.warn(`Failed to load audio files from ${folderPath}: ${response.status}`);
         }
       } catch (error) {
-        console.error(`Error loading audio files from ${folderPath}:`, error);
+        // Silently fail - audio files are optional for the app to function
+        console.debug(`Audio files unavailable from ${folderPath}`);
       }
     };
 
-    loadFiles();
+    if (folderPath) {
+      loadFiles();
+    }
   }, [folderPath]);
 
   // Handle playback scheduling
@@ -76,11 +81,17 @@ export function useRandomGibberish({
       timeoutRef.current = setTimeout(playNextSound, gap);
     };
 
-    // Start immediately
-    playNextSound();
+    // Delay first sound to allow for user interaction first
+    // This avoids "play() failed because user didn't interact" errors
+    const delayedStart = setTimeout(() => {
+      if (enabled && audioFiles.length > 0) {
+        playNextSound();
+      }
+    }, 1000);
 
     // Cleanup on unmount or when disabled
     return () => {
+      clearTimeout(delayedStart);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;

@@ -59,7 +59,8 @@ export const ExperienceContainer: React.FC = () => {
           setResultAudioFiles(data.files || []);
         }
       } catch (error) {
-        console.error('Error loading audio files:', error);
+        // Silently fail - audio is optional for app functionality
+        console.debug('Audio files unavailable');
       }
     };
 
@@ -209,6 +210,7 @@ export const ExperienceContainer: React.FC = () => {
           question,
           juryIds,
           apiKey,
+          allowUndecided: settings.allowUndecided,
         }),
       });
 
@@ -286,14 +288,20 @@ export const ExperienceContainer: React.FC = () => {
 
   return (
     <div
-      className="w-screen h-screen overflow-hidden flex flex-col rounded-lg"
-      style={{ backgroundColor: '#9B0808', border: '20px solid #E5E5E1' }}
+      className="overflow-hidden flex flex-col"
+      style={{ 
+        width: '100vw', 
+        height: '100vh',
+        backgroundColor: 'transparent', 
+        border: '20px solid #E5E5E1',
+        boxSizing: 'border-box',
+      }}
     >
       {/* Top Bar */}
-      <TopBar onMenuClick={() => setMenuOpen(!menuOpen)} />
+      <TopBar onMenuClick={() => setMenuOpen(!menuOpen)} style={{ zIndex: 10 }} />
 
       {/* Main Content Area - Full screen canvas */}
-      <div className="flex-1 w-full absolute overflow-hidden" style={{ minHeight: 0, position: 'relative', zIndex: 0 }}>
+      <div className="flex-1 w-full overflow-hidden" style={{ minHeight: 0, position: 'relative' }}>
         {/* Jury Stage (Canvas with Three.js) - fills entire area, z-index 0 */}
         <JuryStage
           triggerFight={triggerFight}
@@ -319,10 +327,11 @@ export const ExperienceContainer: React.FC = () => {
         isProcessing={isAIProcessing}
         showResults={showResults}
         discussionResult={discussionResult}
+        style={{ zIndex: 36 }}
       />
 
       {/* Side Menu - z-index 50 */}
-      <SideMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
+      <SideMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} style={{ zIndex: 50 }} />
     </div>
   );
 };

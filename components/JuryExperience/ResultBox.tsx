@@ -9,6 +9,7 @@ interface ResultBoxProps {
   showResult: boolean;
   onRetry?: () => void;
   onBackToSelection?: () => void;
+  style?: React.CSSProperties;
 }
 
 const slideInStyle: React.CSSProperties = {
@@ -20,6 +21,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
   showResult,
   onRetry,
   onBackToSelection,
+  style,
 }) => {
   const router = useRouter();
   if (!showResult || !result) return null;
@@ -55,10 +57,11 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           borderLeft: '2px solid #ffb3b3',
-          zIndex: 30,
+          zIndex: 50,
           pointerEvents: 'auto',
           ...slideInStyle,
           top: 'auto',
+          ...style,
         }}
       >
         <div className="p-6 sm:p-10 space-y-4 flex-1">
@@ -79,11 +82,15 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
         {/* Button Footer */}
         <div className="p-6 sm:p-10 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
           <button
+            type="button"
             onClick={onRetry}
             className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
             style={{
               backgroundColor: '#9B0808',
               color: '#E5E5E1',
+              cursor: 'pointer',
+              border: 'none',
+              pointerEvents: 'auto',
             }}
             onMouseEnter={(e) => {
               (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
@@ -95,11 +102,15 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
             Ask Again
           </button>
           <button
+            type="button"
             onClick={() => router.push('/')}
             className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
             style={{
               backgroundColor: '#9B0808',
               color: '#E5E5E1',
+              cursor: 'pointer',
+              border: 'none',
+              pointerEvents: 'auto',
             }}
             onMouseEnter={(e) => {
               (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
@@ -131,9 +142,10 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         borderLeft: '2px solid #CCCCCC',
-        zIndex: 30,
+        zIndex: 40,
         pointerEvents: 'auto',
         ...slideInStyle,
+        ...style,
       }}
     >
       <div className="p-6 sm:p-10 space-y-6 flex-1">
@@ -180,11 +192,15 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
       {/* Button Footer */}
       <div className="p-6 sm:p-10 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
         <button
+          type="button"
           onClick={onRetry}
           className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
           style={{
             backgroundColor: '#9B0808',
             color: '#E5E5E1',
+            cursor: 'pointer',
+            border: 'none',
+            pointerEvents: 'auto',
           }}
           onMouseEnter={(e) => {
             (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
@@ -196,11 +212,15 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
           Ask Again
         </button>
         <button
+          type="button"
           onClick={() => router.push('/')}
           className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
           style={{
             backgroundColor: '#9B0808',
             color: '#E5E5E1',
+            cursor: 'pointer',
+            border: 'none',
+            pointerEvents: 'auto',
           }}
           onMouseEnter={(e) => {
             (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';

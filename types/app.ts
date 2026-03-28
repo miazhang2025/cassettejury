@@ -5,6 +5,7 @@ export type AppStage = 'landing' | 'selecting' | 'experience' | 'results';
 export interface AppSettings {
   soundEnabled: boolean;
   theme: 'light' | 'dark' | 'auto';
+  allowUndecided: boolean;
 }
 
 export interface AppContextType {

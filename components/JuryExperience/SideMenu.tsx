@@ -6,9 +6,10 @@ import { useApp } from '@/context/AppContext';
 interface SideMenuProps {
   isOpen: boolean;
   onClose: () => void;
+  style?: React.CSSProperties;
 }
 
-export const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose }) => {
+export const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, style }) => {
   const { apiKey, setApiKey, settings, updateSettings } = useApp();
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [newKey, setNewKey] = useState('');
@@ -47,6 +48,7 @@ export const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose }) => {
           transitionDuration: '300ms',
           backgroundColor: '#E5E5E1',
           borderRight: '2px solid #CCCCCC',
+          ...style,
         }}
       >
         {/* Header */}
@@ -129,6 +131,24 @@ export const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose }) => {
               />
               <span className="text-xs" style={{ color: '#4a4a4a' }}>
                 Enable jury reactions
+              </span>
+            </label>
+          </div>
+
+          {/* Allow Undecided Toggle */}
+          <div>
+            <h3 className="text-xl mb-3" style={{ color: '#1a1a1a' }}>
+              Jury Discussion
+            </h3>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.allowUndecided}
+                onChange={(e) => updateSettings({ allowUndecided: e.target.checked })}
+                className="w-4 h-4"
+              />
+              <span className="text-xs" style={{ color: '#4a4a4a' }}>
+                Allow juries to remain undecided
               </span>
             </label>
           </div>

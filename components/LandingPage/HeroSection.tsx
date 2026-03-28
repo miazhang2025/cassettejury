@@ -4,7 +4,7 @@ import React from 'react';
 
 export const HeroSection: React.FC = () => {
   return (
-    <div className="px-4 sm:px-6 md:px-12 py-6 sm:py-8 md:py-10 flex flex-col items-center justify-center" style={{ borderColor: '#CCCCCC', minHeight: '8%' }}>
+    <div className="px-4 sm:px-6 md:px-12 pt-6 sm:pt-8 md:pt-10 pb-2 sm:pb-3 md:pb-4 flex flex-col items-center justify-center" style={{ borderColor: '#CCCCCC', minHeight: '8%' }}>
       <h1 className="text-2xl sm:text-4xl md:text-8xl mb-5 text-center" style={{ color: '#9B0808' }}>
         Cassette Jury
       </h1>

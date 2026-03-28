@@ -2,6 +2,7 @@ export interface AIRequest {
   question: string;
   juryIds: string[];
   apiKey: string;
+  allowUndecided?: boolean;
 }
 
 export interface AIResponse {

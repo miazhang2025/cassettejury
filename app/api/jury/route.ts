@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const body: AIRequest = await request.json();
     console.log('API /jury received request body:', body);
     
-    const { question, juryIds, apiKey } = body;
+    const { question, juryIds, apiKey, allowUndecided = false } = body;
 
     // Validate required fields
     console.log('Validation check:');
@@ -60,9 +60,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build prompts
-    const systemPrompt = buildJurySystemPrompt(selectedJuries);
-    const userPrompt = buildUserPrompt(question);
+    // Build prompts with allowUndecided setting
+    const systemPrompt = buildJurySystemPrompt(selectedJuries, allowUndecided);
+    const userPrompt = buildUserPrompt(question, allowUndecided);
 
     // Call Anthropic Claude API
     const response = await fetch('https://api.anthropic.com/v1/messages', {

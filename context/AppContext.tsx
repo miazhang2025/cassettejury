@@ -23,6 +23,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [settings, setSettings] = useState<AppSettings>({
     soundEnabled: true,
     theme: 'light',
+    allowUndecided: false,
   });
 
   // Log initialization

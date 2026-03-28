@@ -1,6 +1,6 @@
 export const APP_CONSTANTS = {
   // Jury selection
-  MAX_JURIES: 11,
+  MAX_JURIES: 21,
   SELECTED_JURIES_COUNT: 9,
 
   // API

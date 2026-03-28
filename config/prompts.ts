@@ -1,6 +1,6 @@
 import { JuryMember } from './juries';
 
-export function buildJurySystemPrompt(selectedJuries: JuryMember[]): string {
+export function buildJurySystemPrompt(selectedJuries: JuryMember[], allowUndecided: boolean = false): string {
   const juryDescriptions = selectedJuries
     .map(
       (jury, idx) => `
@@ -10,6 +10,14 @@ ${idx + 1}. ${jury.name} (${jury.profession}, ${jury.age}${jury.pronouns.include
    `
     )
     .join('\n');
+
+  const stanceOptions = allowUndecided 
+    ? 'Option A | Option B | Undecided'
+    : 'Option A | Option B';
+
+  const undecidedInstruction = allowUndecided
+    ? '5. Some jury members can choose to be Undecided if they genuinely can\'t pick a side - this is authentic and valuable.\n'
+    : '';
 
   return `You are simulating a creative jury discussion between ${selectedJuries.length} professionals.
 
@@ -23,15 +31,20 @@ When responding, you MUST:
 2. Generate genuine splits of opinion (don't make it unanimous)
 3. Keep individual responses to 2-3 sentences maximum
 4. Reflect their professional backgrounds and natural biases
-
+${undecidedInstruction}
 CRITICAL: You must respond with ONLY valid JSON with no additional text before or after. Do NOT include markdown code blocks.`;
 }
 
-export const JURY_RESPONSE_FORMAT = `{
+export function buildJuryResponseFormat(allowUndecided: boolean = false): string {
+  const stanceValues = allowUndecided 
+    ? '"Option A" | "Option B" | "Undecided"'
+    : '"Option A" | "Option B"';
+
+  return `{
   "discussion": [
     {
       "name": "Jury Member Name",
-      "stance": "Option A | Option B",
+      "stance": ${stanceValues},
       "reason": "2-3 sentences in their voice",
       "quote": "1 punchy sentence that captures their viewpoint"
     }
@@ -40,12 +53,15 @@ export const JURY_RESPONSE_FORMAT = `{
   "verdict_narrative": "One sentence synthesizing the key debate point (max 150 chars)",
   "votes": {
     "Option A": <number>,
-    "Option B": <number>,
+    "Option B": <number>${allowUndecided ? ',\n    "Undecided": <number>' : ''}
   }
 }`;
+}
 
-export function buildUserPrompt(question: string): string {
+export const JURY_RESPONSE_FORMAT = buildJuryResponseFormat();
+
+export function buildUserPrompt(question: string, allowUndecided: boolean = false): string {
   return `Creative Direction Question: "${question}"
 
-${JURY_RESPONSE_FORMAT}`;
+${buildJuryResponseFormat(allowUndecided)}`;
 }

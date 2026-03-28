@@ -40,7 +40,7 @@ export const BlobHoverCard: React.FC<BlobHoverCardProps> = ({
 
   // Prevent vertical overflow
   if (position.y - cardHeight < 20) {
-    adjustedY = cardHeight + 20;
+    adjustedY = cardHeight + 40; // Add extra vertical offset for mobile
   }
 
   return (
@@ -60,11 +60,11 @@ export const BlobHoverCard: React.FC<BlobHoverCardProps> = ({
           backgroundImage: 'url(/blobcard.webp)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          minWidth: '200px',
-          maxWidth: 'min(350px, 85vw)',
+          minWidth: '300px',
+          maxWidth: 'min(350px, 90vw)',
           marginBottom: '10px',
-          paddingLeft: '40px',
-          paddingRight: '12px',
+          paddingLeft: '50px',
+          paddingRight: '20px',
           paddingBottom: '20px',
           paddingTop: '20px',
         }}

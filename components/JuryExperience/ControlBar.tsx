@@ -7,12 +7,14 @@ interface StatusBarProps {
   isProcessing: boolean;
   showResults: boolean;
   discussionResult?: DiscussionResult | null;
+  style?: React.CSSProperties;
 }
 
 export const StatusBar: React.FC<StatusBarProps> = ({
   isProcessing,
   showResults,
   discussionResult,
+  style,
 }) => {
   let statusText = 'Cassette Jury';
   
@@ -25,6 +27,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   return (
     <div
       className="h-20 md:h-24 flex items-center justify-center bg-transparent fixed bottom-3 md:bottom-5 left-0 right-0 w-full mb-4 md:mb-6"
+      style={style}
     >
       <h1
         className="text-2xl sm:text-4xl md:text-8xl text-center"

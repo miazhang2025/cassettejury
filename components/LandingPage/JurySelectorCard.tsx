@@ -27,125 +27,191 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const meshRef = useRef<THREE.Mesh | null>(null);
   const [showCard, setShowCard] = useState(false);
-  const [cardPosition, setCardPosition] = useState({ x: 0, y: 0, transform: 'translateX(-50%)', left: 0 });
+  const [cardPosition, setCardPosition] = useState({ x: 0, y: 0, transform: 'translateX(-80%)', left: 0 });
 
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    const canvas = canvasRef.current;
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
+    // Clean up previous renderer if it exists
+    if (rendererRef.current) {
+      rendererRef.current.dispose();
+      rendererRef.current = null;
+    }
 
-    // Scene setup
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#E5E5E1');
+    let cleanupFn: (() => void) | null = null;
 
-    const camera = new THREE.OrthographicCamera(-0.8, 0.8, 0.8, -0.8, 0.1, 100);
-    camera.position.z = 3;
+    // Small timeout to ensure canvas is laid out by browser
+    const timeoutId = setTimeout(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    rendererRef.current = renderer;
+      // Skip if renderer already exists (shouldn't happen, but safety check)
+      if (rendererRef.current) {
+        return;
+      }
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight('#ffffff', 1.5);
-    scene.add(ambientLight);
+      let width = canvas.clientWidth;
+      let height = canvas.clientHeight;
 
-    const keyLight = new THREE.DirectionalLight('#ffffff', 2);
-    keyLight.position.set(2, 2, 2);
-    scene.add(keyLight);
+      // Fallback to minimum size if canvas hasn't been laid out yet
+      if (width === 0 || height === 0) {
+        width = 120;
+        height = 120;
+      }
 
-    // Load jury model
-    const loader = new GLTFLoader();
-    loader.load(
-      `/jury/${jury.id}.glb`,
-      (gltf) => {
-        const model = gltf.scene;
-        
-        // Rotate -90 degrees on Y axis
-        model.rotation.y = -Math.PI / 2;
-        
-        // Apply toon shading material
-        model.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            // Extract the original texture map if it exists
-            let originalMap: THREE.Texture | null = null;
-            if (child.material instanceof THREE.Material && 'map' in child.material) {
-              originalMap = (child.material as any).map;
-            }
+      // Scene setup
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color('#E5E5E1');
 
-            const toonMaterial = new THREE.MeshToonMaterial({
-              color: '#ffffff',
-              map: originalMap,
+      const camera = new THREE.OrthographicCamera(-0.8, 0.8, 0.8, -0.8, 0.1, 100);
+      camera.position.z = 3;
+
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'low-power' });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      rendererRef.current = renderer;
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight('#ffffff', 1.5);
+      scene.add(ambientLight);
+
+      const keyLight = new THREE.DirectionalLight('#ffffff', 2);
+      keyLight.position.set(2, 2, 2);
+      scene.add(keyLight);
+
+      // Load jury model
+      const loader = new GLTFLoader();
+      let modelLoadAttempts = 0;
+      const maxAttempts = 2;
+
+      const loadModel = () => {
+        loader.load(
+          `/jury/${jury.id}.glb`,
+          (gltf) => {
+            const model = gltf.scene;
+            
+            // Rotate -90 degrees on Y axis
+            model.rotation.y = -Math.PI / 2;
+            
+            // Apply toon shading material and make sure model is visible
+            model.traverse((child) => {
+              if (child instanceof THREE.Mesh) {
+                // Extract the original texture map if it exists
+                let originalMap: THREE.Texture | null = null;
+                if (child.material instanceof THREE.Material && 'map' in child.material) {
+                  originalMap = (child.material as any).map;
+                }
+
+                const toonMaterial = new THREE.MeshToonMaterial({
+                  color: '#ffffff',
+                  map: originalMap,
+                  emissive: '#00000',
+                });
+                child.material = toonMaterial;
+                child.castShadow = true;
+                child.receiveShadow = true;
+                // Compute normals for smooth shading
+                if (child.geometry) {
+                  child.geometry.computeVertexNormals();
+                }
+              }
             });
-            child.material = toonMaterial;
-            child.castShadow = true;
-            child.receiveShadow = true;
-            // Compute normals for smooth shading
+            
+            scene.add(model);
+            meshRef.current = model as any;
+            console.debug(`Successfully loaded model for ${jury.id}`);
+          },
+          undefined,
+          (error) => {
+            modelLoadAttempts++;
+            console.warn(`Failed to load model for ${jury.id} (attempt ${modelLoadAttempts}):`, error);
+            
+            if (modelLoadAttempts < maxAttempts) {
+              // Retry once
+              setTimeout(() => {
+                loadModel();
+              }, 500);
+            } else {
+              // Fallback: create a sphere if model fails to load
+              const geometry = new THREE.IcosahedronGeometry(0.8, 5);
+              // Compute vertex normals for smooth shading
+              geometry.computeVertexNormals();
+              const material = new THREE.MeshToonMaterial({
+                color: '#ffffff',
+                emissive: '#000000',
+              });
+
+              const mesh = new THREE.Mesh(geometry, material);
+              scene.add(mesh);
+              meshRef.current = mesh;
+              console.debug(`Using fallback sphere for ${jury.id}`);
+            }
+          }
+        );
+      };
+
+      loadModel();
+
+      // Animation loop
+      let animationId: number;
+      const animate = () => {
+        animationId = requestAnimationFrame(animate);
+
+        if (meshRef.current) {
+          meshRef.current.rotation.y += 0.01;
+        }
+
+        renderer.render(scene, camera);
+      };
+
+      animate();
+
+      // Handle resize
+      const handleResize = () => {
+        const newWidth = canvas.clientWidth;
+        const newHeight = canvas.clientHeight;
+        renderer.setSize(newWidth, newHeight);
+      };
+
+      window.addEventListener('resize', handleResize);
+
+      // Create cleanup function
+      cleanupFn = () => {
+        window.removeEventListener('resize', handleResize);
+        cancelAnimationFrame(animationId);
+        
+        // Stop animation and clear mesh reference
+        meshRef.current = null;
+        
+        // Properly dispose Three.js resources
+        scene.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
             if (child.geometry) {
-              child.geometry.computeVertexNormals();
+              child.geometry.dispose();
+            }
+            if (child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach((m) => m.dispose());
+              } else {
+                child.material.dispose();
+              }
             }
           }
         });
-        
-        scene.add(model);
-        meshRef.current = model as any;
-      },
-      undefined,
-      (error) => {
-        console.error(`Failed to load model for ${jury.id}:`, error);
-        // Fallback: create a sphere if model fails to load
-        const geometry = new THREE.IcosahedronGeometry(0.8, 5);
-        // Compute vertex normals for smooth shading
-        geometry.computeVertexNormals();
-        const material = new THREE.MeshToonMaterial({
-          color: '#ffffff',
-        });
 
-        const mesh = new THREE.Mesh(geometry, material);
-        scene.add(mesh);
-        meshRef.current = mesh;
-      }
-    );
-
-    // Animation loop
-    let animationId: number;
-    const animate = () => {
-      animationId = requestAnimationFrame(animate);
-
-      if (meshRef.current) {
-        meshRef.current.rotation.y += 0.01;
-      }
-
-      renderer.render(scene, camera);
-    };
-
-    animate();
-
-    // Handle resize
-    const handleResize = () => {
-      const newWidth = canvas.clientWidth;
-      const newHeight = canvas.clientHeight;
-      renderer.setSize(newWidth, newHeight);
-    };
-
-    window.addEventListener('resize', handleResize);
+        // Dispose renderer and release WebGL context
+        if (rendererRef.current) {
+          rendererRef.current.dispose();
+          rendererRef.current = null;
+        }
+      };
+    }, 50); // 50ms delay to ensure layout
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      cancelAnimationFrame(animationId);
-      renderer.dispose();
-      // Only dispose geometry/material if they exist (fallback case)
-      if (meshRef.current?.geometry) {
-        (meshRef.current.geometry as THREE.BufferGeometry).dispose();
-      }
-      if (meshRef.current?.material) {
-        if (Array.isArray(meshRef.current.material)) {
-          meshRef.current.material.forEach((m) => m.dispose());
-        } else {
-          (meshRef.current.material as THREE.Material).dispose();
-        }
+      clearTimeout(timeoutId);
+      // Call cleanup if it was set up
+      if (cleanupFn) {
+        cleanupFn();
       }
     };
   }, [jury.color, jury.id]);
