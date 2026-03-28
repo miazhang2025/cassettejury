@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { juries } from '@/config/juries';
+import { juries, JuryMember } from '@/config/juries';
 import { APP_CONSTANTS } from '@/config/constants';
 import {
   AppContextType,
@@ -14,7 +14,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [allJuries] = useState(juries);
-  const [selectedJuries, setSelectedJuries] = useState(juries.slice(0, 9)); // Default first 9
+  const [selectedJuries, setSelectedJuries] = useState<JuryMember[]>([]); // Default 0, select up to 9
   const [stage, setStage] = useState<AppStage>('landing');
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [discussionResult, setDiscussionResult] = useState<DiscussionResult | null>(null);

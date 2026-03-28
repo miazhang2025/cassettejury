@@ -15,6 +15,7 @@ interface JuryStageProps {
   triggerFight?: boolean;
   showResults?: boolean;
   discussionResult?: DiscussionResult | null;
+  isProcessing?: boolean;
 }
 
 export const JuryStage: React.FC<JuryStageProps> = ({
@@ -22,6 +23,7 @@ export const JuryStage: React.FC<JuryStageProps> = ({
   triggerFight = false,
   showResults = false,
   discussionResult = null,
+  isProcessing = false,
 }) => {
   const { selectedJuries, settings } = useApp();
   const sceneHook = useThreeJsScene('jury-canvas', showResults, discussionResult);
@@ -112,14 +114,14 @@ export const JuryStage: React.FC<JuryStageProps> = ({
     const currentHoveredId = sceneHook.hoveredBlobInfo.juryMember?.id || null;
 
     // Only play sound if we just started hovering on a new blob
-    if (currentHoveredId && currentHoveredId !== previousHoveredBlobRef.current && settings.soundEnabled) {
+    if (currentHoveredId && currentHoveredId !== previousHoveredBlobRef.current && settings.soundEnabled && !isProcessing) {
       playSound(AUDIO_FILES.SFX.paper, {
         volume: VOLUME_DEFAULTS.SFX,
       });
     }
 
     previousHoveredBlobRef.current = currentHoveredId;
-  }, [sceneHook.hoveredBlobInfo.juryMember?.id, settings.soundEnabled]);
+  }, [sceneHook.hoveredBlobInfo.juryMember?.id, settings.soundEnabled, isProcessing]);
 
   return (
     <>
@@ -137,6 +139,7 @@ export const JuryStage: React.FC<JuryStageProps> = ({
         position={sceneHook.hoveredBlobInfo.screenPosition}
         showResults={showResults}
         discussionResult={discussionResult}
+        isProcessing={isProcessing}
       />
     </>
   );

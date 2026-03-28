@@ -9,6 +9,7 @@ interface BlobHoverCardProps {
   position: { x: number; y: number } | null;
   showResults?: boolean;
   discussionResult?: DiscussionResult | null;
+  isProcessing?: boolean;
 }
 
 export const BlobHoverCard: React.FC<BlobHoverCardProps> = ({
@@ -16,8 +17,9 @@ export const BlobHoverCard: React.FC<BlobHoverCardProps> = ({
   position,
   showResults = false,
   discussionResult = null,
+  isProcessing = false,
 }) => {
-  if (!juryMember || !position) return null;
+  if (!juryMember || !position || isProcessing) return null;
 
   // Find this jury member's decision in the discussion results
   const juryVote = discussionResult?.discussion?.find(

@@ -13,9 +13,7 @@ import { APP_CONSTANTS } from '@/config/constants';
 export default function Home() {
   const router = useRouter();
   const { setSelectedJuries, setApiKey, setStage, allJuries } = useApp();
-  const [selectedJuries, setLocalSelectedJuries] = useState<JuryMember[]>(
-    allJuries.slice(0, APP_CONSTANTS.SELECTED_JURIES_COUNT)
-  );
+  const [selectedJuries, setLocalSelectedJuries] = useState<JuryMember[]>([]);
 
   const handleSelectionChange = (juries: JuryMember[]) => {
     setLocalSelectedJuries(juries);

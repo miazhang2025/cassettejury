@@ -17,7 +17,7 @@ export const JurySelector: React.FC<JurySelectorProps> = ({
   onProceed,
 }) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    new Set(allJuries.slice(0, APP_CONSTANTS.SELECTED_JURIES_COUNT).map((j) => j.id))
+    new Set()
   );
 
   const handleSelectJury = useCallback(

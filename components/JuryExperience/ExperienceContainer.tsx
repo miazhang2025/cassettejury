@@ -34,6 +34,7 @@ export const ExperienceContainer: React.FC = () => {
   const [triggerFight, setTriggerFight] = useState(false);
   const [fightingAudioFiles, setFightingAudioFiles] = useState<string[]>([]);
   const [resultAudioFiles, setResultAudioFiles] = useState<string[]>([]);
+  const [submittedQuestion, setSubmittedQuestion] = useState<string | null>(null);
   
   // Audio refs
   const musicRef = useRef<HTMLAudioElement | null>(null);
@@ -169,6 +170,13 @@ export const ExperienceContainer: React.FC = () => {
     };
   }, []);
 
+  const handleResetQuestion = () => {
+    setSubmittedQuestion(null);
+    setShowResults(false);
+    setDiscussionResult(null);
+    setCurrentQuestion('');
+  };
+
   const handleSubmitQuestion = async (question: string) => {
     // Check if API key exists
     if (!apiKey) {
@@ -184,6 +192,7 @@ export const ExperienceContainer: React.FC = () => {
       return;
     }
 
+    setSubmittedQuestion(question);
     setCurrentQuestion(question);
     setIsAIProcessing(true);
     setTriggerFight(true); // Start fight animation
@@ -275,12 +284,6 @@ export const ExperienceContainer: React.FC = () => {
     setIsAIProcessing(false);
   };
 
-  const handleRetry = () => {
-    setShowResults(false);
-    setDiscussionResult(null);
-    setCurrentQuestion('');
-  };
-
   const handleBackToSelection = () => {
     setStage('landing');
     router.push('/');
@@ -308,15 +311,16 @@ export const ExperienceContainer: React.FC = () => {
           onFightComplete={handleFightComplete}
           showResults={showResults}
           discussionResult={discussionResult}
+          isProcessing={isAIProcessing}
         />
 
         {/* Input or Result Box (floating, overlaid on canvas, z-index 30) */}
-        {!showResults && <InputBox onSubmit={handleSubmitQuestion} isLoading={isAIProcessing} />}
+        <InputBox onSubmit={handleSubmitQuestion} isLoading={isAIProcessing} showResults={showResults} submittedQuestion={submittedQuestion} onResetQuestion={handleResetQuestion} />
         {showResults && discussionResult && (
           <ResultBox
             result={discussionResult}
             showResult={showResults}
-            onRetry={handleRetry}
+            onRetry={handleResetQuestion}
             onBackToSelection={handleBackToSelection}
           />
         )}

@@ -1,6 +1,6 @@
 export const APP_CONSTANTS = {
   // Jury selection
-  MAX_JURIES: 21,
+  MAX_JURIES: 16,
   SELECTED_JURIES_COUNT: 9,
 
   // API
@@ -19,7 +19,7 @@ export const APP_CONSTANTS = {
   PHYSICS_FIGHT_FORCE: 60, // Force applied during fight animation
 
   // UI
-  MAX_QUESTION_LENGTH: 500,
+  MAX_QUESTION_LENGTH: 1000,
   TOOLTIP_DELAY_MS: 200,
 
   // Three.js

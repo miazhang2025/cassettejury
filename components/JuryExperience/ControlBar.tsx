@@ -32,8 +32,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       <h1
         className="text-2xl sm:text-4xl md:text-8xl text-center"
         style={{
-          color: '#9B0808',
-          WebkitTextStroke: 'clamp(2px, 1vw, 20px) #E5E5E1',
+          color: isProcessing  ? '#e5e5e1' : '#9B0808',
+          WebkitTextStroke: isProcessing ? 'clamp(2px, 1vw, 20px) #9B0808' : 'clamp(2px, 1vw, 20px) #E5E5E1',
           paintOrder: 'stroke fill',
         }}
       >

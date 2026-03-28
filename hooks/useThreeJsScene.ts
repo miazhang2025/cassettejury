@@ -134,7 +134,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     cameraRef.current = camera;
 
     // Renderer
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
@@ -359,13 +359,16 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       }
 
       if (isAnyBlobFighting) {
-        const shakeAmount = 0.15; // Shake intensity
-        const baseShakeFrequency = 4; // Base frequency
+        const shakeAmount = 0.01; // Shake intensity (very mild effect)
+        const baseShakeFrequency = 1; // Base frequency
         // Dynamic frequency that varies over time between 7.7-14.3 Hz
-        const shakeFrequency = baseShakeFrequency * (0.5 + 0.3 * Math.sin(time * 0.8));
-        const shakeX = Math.sin(time * shakeFrequency) * shakeAmount;
-        const shakeY = Math.cos(time * shakeFrequency * 0.7) * shakeAmount;
-        const shakeZ = Math.sin(time * shakeFrequency * 0.5) * shakeAmount;
+        const shakeFrequency = baseShakeFrequency * (Math.sin(time * 0.5));
+
+        // const shakeFrequency = baseShakeFrequency * 1 ;
+
+        const shakeX = Math.sin(time * shakeFrequency * 0.01) * shakeAmount;
+        const shakeY = Math.cos(time * shakeFrequency * 0.01) * shakeAmount;
+        const shakeZ = Math.sin(time * shakeFrequency ) * shakeAmount;
         
         camera.position.x += shakeX;
         camera.position.y += shakeY;
