@@ -85,6 +85,7 @@ Color: ${draft.color}`;
     bio: refinedData.bio || draft.bio,
     color: draft.color,
     silhouette: refinedData.silhouette || 'Blob-shaped presence',
+    style_version: 'default',
   };
 }
 

@@ -17,7 +17,9 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
   isValid,
   selectedCount,
 }) => {
-  const { settings } = useApp();
+  const { settings, apiKey: contextApiKey } = useApp();
+  // TEMPORARY: when server env key is active, treat as pre-filled
+  const usingEnvKey = contextApiKey === '__env__';
   const [apiKey, setApiKey] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -27,6 +29,20 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
   };
 
   const handleSubmit = () => {
+    // TEMPORARY: skip all validation when using the server env key
+    if (usingEnvKey) {
+      if (selectedCount !== APP_CONSTANTS.SELECTED_JURIES_COUNT) {
+        setError(`Please select exactly ${APP_CONSTANTS.SELECTED_JURIES_COUNT} jurors`);
+        return;
+      }
+      if (settings.soundEnabled) {
+        playSound(AUDIO_FILES.SFX.click, { volume: VOLUME_DEFAULTS.SFX });
+      }
+      setError('');
+      setIsLoading(true);
+      onApiKeySubmit('__env__');
+      return;
+    }
     if (!apiKey.trim()) {
       setError('API key is required');
       return;
@@ -61,7 +77,7 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
   };
 
   const canProceed =
-    isValid && selectedCount === APP_CONSTANTS.SELECTED_JURIES_COUNT && !isLoading;
+    (usingEnvKey || isValid) && selectedCount === APP_CONSTANTS.SELECTED_JURIES_COUNT && !isLoading;
 
   return (
     <div
@@ -99,25 +115,36 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
           </div>
         </div>
       </div>
-        <input
-          type="password"
-          value={apiKey}
-          onChange={(e) => {
-            setApiKey(e.target.value);
-            setError('');
-          }}
-          onKeyPress={handleKeyPress}
-          placeholder="Paste your API key (starts with sk-ant-)"
-          className="max-w-sm px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2"
-          style={{
-            borderColor: error ? '#E63946' : '#CCCCCC',
-            backgroundColor: '#FFFFFF',
-            color: '#1a1a1a',
-            '--tw-ring-color': '#9B0808',
-          } as React.CSSProperties}
-          disabled={isLoading}
-          suppressHydrationWarning
-        />
+        {usingEnvKey ? (
+          // TEMPORARY: show locked indicator when server env key is active
+          <div
+            className="max-w-sm px-3 py-2 border rounded-md text-sm flex items-center gap-2"
+            style={{ borderColor: '#CCCCCC', backgroundColor: '#F5F5F2', color: '#4a4a4a' }}
+          >
+            <span>&#128274;</span>
+            <span>Hosted key in use, choose character directly</span>
+          </div>
+        ) : (
+          <input
+            type="password"
+            value={apiKey}
+            onChange={(e) => {
+              setApiKey(e.target.value);
+              setError('');
+            }}
+            onKeyPress={handleKeyPress}
+            placeholder="Paste your API key (starts with sk-ant-)"
+            className="max-w-sm px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2"
+            style={{
+              borderColor: error ? '#E63946' : '#CCCCCC',
+              backgroundColor: '#FFFFFF',
+              color: '#1a1a1a',
+              '--tw-ring-color': '#9B0808',
+            } as React.CSSProperties}
+            disabled={isLoading}
+            suppressHydrationWarning
+          />
+        )}
 
         <button
           onClick={handleSubmit}

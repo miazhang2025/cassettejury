@@ -15,7 +15,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'API key is required' }, { status: 400 });
     }
 
-    const systemPrompt = `You are an expert character designer. You're helping create a diverse cast of jury members for a satirical design feedback session. Based on a draft character concept, you will generate a complete, refined character profile.
+    // Fetch the current Style Anchor
+    let styleAnchor: any = null;
+    try {
+      const styleAnchorResponse = await fetch(
+        `${process.env.NODE_ENV === 'production' ? 'https://' + request.headers.get('host') : 'http://localhost:3000'}/api/admin/style-anchor`
+      );
+      if (styleAnchorResponse.ok) {
+        styleAnchor = await styleAnchorResponse.json();
+      }
+    } catch (styleError) {
+      console.warn('Could not fetch style anchor:', styleError);
+    }
+
+    // Build the system prompt with Style Anchor injection
+    let systemPrompt = `You are an expert character designer. You're helping create a diverse cast of jury members for a satirical design feedback session. Based on a draft character concept, you will generate a complete, refined character profile.
 
 Return ONLY a valid JSON object with this exact structure (no markdown, no extra text):
 {
@@ -32,6 +46,25 @@ Rules:
 - Create a location that fits the character's profession
 - Silhouette should describe a blob character's visual appearance (shape, posture, size, presence)
 - Keep bio vivid and personality-driven`;
+
+    // Inject Style Anchor constraints if available
+    if (styleAnchor) {
+      systemPrompt += `
+
+STYLE ANCHOR (follow these rules strictly):
+RENDERING STYLE: ${styleAnchor.rendering_style}
+
+LIGHTING: ${styleAnchor.lighting}
+
+COLOR PALETTE: ${styleAnchor.color_palette}
+
+CHARACTER FRAMING: ${styleAnchor.character_framing}
+
+PROHIBITED ELEMENTS (never include): ${styleAnchor.prohibited_elements.join(', ')}
+
+REFERENCE STYLE (ensure similarity to these approved styles):
+${styleAnchor.reference_prompts.join('\n')}`;
+    }
 
     const userPrompt = `Create a refined character profile based on this draft:
 Name: ${draft.name}
@@ -86,6 +119,7 @@ Color: ${draft.color}`;
         bio: refinedData.bio || draft.bio,
         color: draft.color,
         silhouette: refinedData.silhouette || 'Blob-shaped presence',
+        style_version: styleAnchor?.version || 'default',
       },
       { status: 200 }
     );

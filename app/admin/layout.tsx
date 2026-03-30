@@ -2,9 +2,12 @@
 
 import { ReactNode } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import LogoutButton from './LogoutButton';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+
   return (
     <div className="min-h-screen bg-gray-50" style={{ backgroundColor: '#F5F5F2' }}>
       {/* Admin Header */}
@@ -27,6 +30,34 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+
+      {/* Admin Navigation */}
+      <nav className="border-b border-gray-200 bg-white">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="flex gap-8">
+            <Link
+              href="/admin/character-generator"
+              className={`border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
+                pathname === '/admin/character-generator'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Character Generator
+            </Link>
+            <Link
+              href="/admin/style-anchor"
+              className={`border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
+                pathname === '/admin/style-anchor'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Style Anchor
+            </Link>
+          </div>
+        </div>
+      </nav>
 
       {/* Admin Content */}
       <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>

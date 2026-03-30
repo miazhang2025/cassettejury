@@ -8,7 +8,24 @@ export async function POST(request: NextRequest) {
     const body: AIRequest = await request.json();
     console.log('API /jury received request body:', body);
     
-    const { question, juryIds, apiKey, allowUndecided = false } = body;
+    const { question, juryIds, apiKey: rawApiKey, allowUndecided = false } = body;
+
+    // --- TEMPORARY: resolve server-side env key ---
+    // When NEXT_PUBLIC_USE_ENV_KEY=true, the client sends '__env__' as a sentinel.
+    // We swap it here so the real key never leaves the server.
+    // To remove this feature: set NEXT_PUBLIC_USE_ENV_KEY=false in .env.local.
+    let apiKey = rawApiKey;
+    if (rawApiKey === '__env__') {
+      const envKey = process.env.ANTHROPIC_API_KEY;
+      if (!envKey) {
+        return NextResponse.json(
+          { error: 'Server is not configured with an API key. Contact the admin.' },
+          { status: 500 }
+        );
+      }
+      apiKey = envKey;
+    }
+    // --- END TEMPORARY ---
 
     // Validate required fields
     console.log('Validation check:');

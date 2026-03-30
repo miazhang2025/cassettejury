@@ -34,6 +34,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // Load API key from sessionStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // TEMPORARY: if server env key is active, use sentinel — no user input needed
+      if (process.env.NEXT_PUBLIC_USE_ENV_KEY === 'true') {
+        setApiKey('__env__');
+        return;
+      }
       const stored = sessionStorage.getItem(APP_CONSTANTS.API_KEY_SESSION_KEY);
       if (stored) {
         console.log('Loaded API key from sessionStorage');

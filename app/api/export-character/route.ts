@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
     bio: '${character.bio.replace(/'/g, "\\'")}',
     color: '${character.color}',
     silhouette: '${character.silhouette.replace(/'/g, "\\'")}',
+    style_version: '${character.style_version}',
     voiceProfile: 'To be determined',
   },`;
 

@@ -75,6 +75,7 @@ export interface RefinedCharacter {
   bio: string;
   color: string;
   silhouette: string;
+  style_version: string;
 }
 
 export interface GeneratedImages {
