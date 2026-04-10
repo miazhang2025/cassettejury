@@ -14,7 +14,7 @@ export interface AIResponse {
 
 export interface AIJuryResponse {
   name: string;
-  stance: 'Option A' | 'Option B' | 'Undecided';
+  stance: string;
   reason: string;
   quote: string;
 }

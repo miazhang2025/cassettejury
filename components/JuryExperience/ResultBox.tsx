@@ -127,7 +127,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
           ...style,
         }}
       >
-        <div className="p-6 sm:p-10 space-y-4 flex-1">
+        <div className="p-8 sm:p-12 space-y-4 flex-1">
           <h2 className="text-xl sm:text-2xl font-bold" style={{ color: '#9B0808' }}>
             Error
           </h2>
@@ -143,7 +143,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
         </div>
 
         {/* Button Footer */}
-        <div className="p-6 sm:p-10 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
+        <div className="p-8 sm:p-12 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
           <button
             type="button"
             onClick={onRetry}
@@ -231,7 +231,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
         ...style,
       }}
     >
-      <div className="p-6 sm:p-10 space-y-6 flex-1">
+      <div className="p-8 sm:p-12 space-y-6 flex-1">
         {/* Summary */}
         <div>
           <p className="text-xs sm:text-sm" style={{ color: '#4a4a4a' }}>
@@ -268,12 +268,12 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
 
         {/* Hover hint */}
         <p className="text-xs sm:text-sm text-center" style={{ color: '#8a8a8a' }}>
-          👆 Hover over blobs to see individual jury member verdicts
+          👆 Tap & hold blobs to see individual jury member verdicts
         </p>
       </div>
 
       {/* Button Footer */}
-      <div className="p-6 sm:p-10 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
+      <div className="p-8 sm:p-12 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
         <button
           type="button"
           onClick={onRetry}

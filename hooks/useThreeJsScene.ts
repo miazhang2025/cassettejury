@@ -125,6 +125,9 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     canvas.width = Math.floor(width);
     canvas.height = Math.floor(height);
 
+    // Detect mobile for responsive adjustments
+    const isMobile = window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0);
+
     // Scene setup
     const scene = new THREE.Scene();
     
@@ -137,7 +140,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     sceneRef.current = scene;
 
     // Camera - perspective for true 3D
-    const camera = new THREE.PerspectiveCamera(20, width / height, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(isMobile ? 40 : 20, width / height, 0.1, 1000);
     camera.position.z = 12;
     camera.position.y = 4;
     camera.lookAt(0, 2, 0);
@@ -202,6 +205,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
         canvas.width = Math.floor(newWidth);
         canvas.height = Math.floor(newHeight);
 
+        camera.fov = newWidth < 768 ? 40 : 20;
         camera.aspect = newWidth / newHeight;
         camera.updateProjectionMatrix();
 
@@ -306,6 +310,112 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     canvas.addEventListener('mouseleave', handleMouseUp);
     canvas.addEventListener('contextmenu', (e) => e.preventDefault()); // Prevent context menu
     canvas.addEventListener('wheel', handleMouseWheel, { passive: false });
+
+    // --- Touch handlers for mobile ---
+    let touchLongPressTimer: ReturnType<typeof setTimeout> | null = null;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchMoved = false;
+    let lastPinchDistance = 0;
+    const LONG_PRESS_DURATION = 500;
+    const LONG_PRESS_MOVE_THRESHOLD = 10;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        touchMoved = false;
+        lastCameraMouseX = touch.clientX;
+        isRotatingCamera = true;
+
+        // Update mouse NDC for potential long-press raycasting
+        const rect = canvas.getBoundingClientRect();
+        mouseRef.current.set(
+          ((touch.clientX - rect.left) / rect.width) * 2 - 1,
+          -((touch.clientY - rect.top) / rect.height) * 2 + 1
+        );
+
+        // Start long-press timer to show blob card
+        touchLongPressTimer = setTimeout(() => {
+          if (!touchMoved) {
+            raycasterRef.current.setFromCamera(mouseRef.current, camera);
+            const hits = raycasterRef.current.intersectObjects(
+              Array.from(blobsRef.current.values()).map((b) => b.mesh!),
+              true
+            );
+            if (hits.length > 0) {
+              const firstMesh = hits[0].object as THREE.Mesh;
+              outer: for (const [_, blob] of blobsRef.current) {
+                let current: THREE.Object3D | null = firstMesh;
+                while (current) {
+                  if (current === blob.mesh) {
+                    blob.setHighlight(true, blob.originalColor || '#ffffff');
+                    const blobWorldPos = blob.getWorldPosition();
+                    const screenPos = blobWorldPos.project(camera);
+                    const canvasRect = canvas.getBoundingClientRect();
+                    setHoveredBlobInfo({
+                      juryMember: blobToJuryRef.current.get(blob) || null,
+                      screenPosition: {
+                        x: canvasRect.left + (screenPos.x + 1) * (canvasRect.width / 2),
+                        y: canvasRect.top + (1 - screenPos.y) * (canvasRect.height / 2),
+                      },
+                    });
+                    break outer;
+                  }
+                  current = current.parent;
+                }
+              }
+            }
+          }
+        }, LONG_PRESS_DURATION);
+      } else if (e.touches.length === 2) {
+        // Pinch start – cancel any pending long press
+        if (touchLongPressTimer) { clearTimeout(touchLongPressTimer); touchLongPressTimer = null; }
+        isRotatingCamera = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastPinchDistance = Math.sqrt(dx * dx + dy * dy);
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        const moveX = touch.clientX - touchStartX;
+        const moveY = touch.clientY - touchStartY;
+        if (Math.sqrt(moveX * moveX + moveY * moveY) > LONG_PRESS_MOVE_THRESHOLD) {
+          touchMoved = true;
+          if (touchLongPressTimer) { clearTimeout(touchLongPressTimer); touchLongPressTimer = null; }
+        }
+        if (isRotatingCamera) {
+          const deltaX = touch.clientX - lastCameraMouseX;
+          targetTheta -= deltaX * CAMERA_ROTATION_SPEED;
+          lastCameraMouseX = touch.clientX;
+        }
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, targetDistance + (lastPinchDistance - distance) * 0.05));
+        lastPinchDistance = distance;
+      }
+    };
+
+    const handleTouchEnd = (_e: TouchEvent) => {
+      if (touchLongPressTimer) { clearTimeout(touchLongPressTimer); touchLongPressTimer = null; }
+      isRotatingCamera = false;
+      // Release blob card on touch end
+      setHoveredBlobInfo({ juryMember: null, screenPosition: null });
+    };
+
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+    canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+    // --- End Touch handlers ---
 
     // --- Smoke Particle System ---
     const PARTICLE_POOL_SIZE = 200;
@@ -534,58 +644,60 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       //   lastMousePos = { x: mouseRef.current.x, y: mouseRef.current.y };
       // }
 
-      // Raycasting for hover detection
-      raycasterRef.current.setFromCamera(mouseRef.current, camera);
-      const intersects = raycasterRef.current.intersectObjects(
-        Array.from(blobsRef.current.values()).map((b) => b.mesh!),
-        true  // recursive: true to detect intersections with child meshes in loaded models
-      );
+      // Raycasting for hover detection (desktop only — mobile uses long-press touch handlers)
+      if (!isMobile) {
+        raycasterRef.current.setFromCamera(mouseRef.current, camera);
+        const intersects = raycasterRef.current.intersectObjects(
+          Array.from(blobsRef.current.values()).map((b) => b.mesh!),
+          true  // recursive: true to detect intersections with child meshes in loaded models
+        );
 
-      // Update highlights
-      for (const blob of blobsRef.current.values()) {
-        if (hoveredBlob !== blob && draggedBlob !== blob) {
-          blob.setHighlight(false, blob.originalColor || '#ffffff');
+        // Update highlights
+        for (const blob of blobsRef.current.values()) {
+          if (hoveredBlob !== blob && draggedBlob !== blob) {
+            blob.setHighlight(false, blob.originalColor || '#ffffff');
+          }
         }
-      }
 
-      if (intersects.length > 0 && !isDragging) {
-        const firstMesh = intersects[0].object as THREE.Mesh;
-        
-        // Find the top-level blob that contains this intersected mesh
-        for (const [_, blob] of blobsRef.current) {
-          // Check if the intersected object is the blob mesh itself or one of its descendants
-          let current: THREE.Object3D | null = firstMesh;
-          while (current) {
-            if (current === blob.mesh) {
-              // Found the blob!
-              hoveredBlob = blob;
-              blob.setHighlight(true, blob.originalColor || '#ffffff');
-              
-              // Update hovered blob info with jury member data and screen position
-              const blobWorldPos = blob.getWorldPosition();
-              const screenPos = blobWorldPos.project(camera);
-              const canvasRect = canvas.getBoundingClientRect();
-              setHoveredBlobInfo({
-                juryMember: blobToJuryRef.current.get(blob) || null,
-                screenPosition: {
-                  x: canvasRect.left + (screenPos.x + 1) * (canvasRect.width / 2),
-                  y: canvasRect.top + (1 - screenPos.y) * (canvasRect.height / 2),
-                },
-              });
+        if (intersects.length > 0 && !isDragging) {
+          const firstMesh = intersects[0].object as THREE.Mesh;
+          
+          // Find the top-level blob that contains this intersected mesh
+          for (const [_, blob] of blobsRef.current) {
+            // Check if the intersected object is the blob mesh itself or one of its descendants
+            let current: THREE.Object3D | null = firstMesh;
+            while (current) {
+              if (current === blob.mesh) {
+                // Found the blob!
+                hoveredBlob = blob;
+                blob.setHighlight(true, blob.originalColor || '#ffffff');
+                
+                // Update hovered blob info with jury member data and screen position
+                const blobWorldPos = blob.getWorldPosition();
+                const screenPos = blobWorldPos.project(camera);
+                const canvasRect = canvas.getBoundingClientRect();
+                setHoveredBlobInfo({
+                  juryMember: blobToJuryRef.current.get(blob) || null,
+                  screenPosition: {
+                    x: canvasRect.left + (screenPos.x + 1) * (canvasRect.width / 2),
+                    y: canvasRect.top + (1 - screenPos.y) * (canvasRect.height / 2),
+                  },
+                });
+                break;
+              }
+              current = current.parent;
+            }
+            
+            if (hoveredBlob === blob) {
               break;
             }
-            current = current.parent;
           }
-          
-          if (hoveredBlob === blob) {
-            break;
-          }
+        } else if (!isDragging) {
+          hoveredBlob = null;
+          setHoveredBlobInfo({ juryMember: null, screenPosition: null });
+        } else if (isDragging && draggedBlob) {
+          draggedBlob.setHighlight(true, draggedBlob.originalColor || '#ffffff');
         }
-      } else if (!isDragging) {
-        hoveredBlob = null;
-        setHoveredBlobInfo({ juryMember: null, screenPosition: null });
-      } else if (isDragging && draggedBlob) {
-        draggedBlob.setHighlight(true, draggedBlob.originalColor || '#ffffff');
       }
 
       // Apply scale animation to blobs
@@ -612,6 +724,10 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       canvas.removeEventListener('mouseleave', handleMouseUp);
       canvas.removeEventListener('contextmenu', (e) => e.preventDefault());
       canvas.removeEventListener('wheel', handleMouseWheel);
+      canvas.removeEventListener('touchstart', handleTouchStart);
+      canvas.removeEventListener('touchmove', handleTouchMove);
+      canvas.removeEventListener('touchend', handleTouchEnd);
+      canvas.removeEventListener('touchcancel', handleTouchEnd);
       cancelAnimationFrame(animationId);
       renderer.dispose();
 

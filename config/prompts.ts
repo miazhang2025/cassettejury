@@ -16,7 +16,7 @@ ${idx + 1}. ${jury.name} (${jury.profession}, ${jury.age}${jury.pronouns.include
     : 'Option A | Option B';
 
   const undecidedInstruction = allowUndecided
-    ? '5. Some jury members can choose to be Undecided if they genuinely can\'t pick a side - this is authentic and valuable.\n'
+    ? '6. Some jury members can choose to be Undecided if they genuinely can\'t pick a side - this is authentic and valuable.\n'
     : '';
 
   return `You are simulating a creative jury discussion between ${selectedJuries.length} professionals.
@@ -31,14 +31,15 @@ When responding, you MUST:
 2. Generate genuine splits of opinion (don't make it unanimous)
 3. Keep individual responses to 2-3 sentences maximum
 4. Reflect their professional backgrounds and natural biases
+5. Identify the two sides of the question and create concise 2-4 word labels for each (e.g. "Dark Mode" vs "Light Mode", "Minimalist Design" vs "Bold Typography"). Use these exact labels consistently as stance values and vote keys throughout the JSON — never use "Option A" or "Option B".
 ${undecidedInstruction}
 CRITICAL: You must respond with ONLY valid JSON with no additional text before or after. Do NOT include markdown code blocks.`;
 }
 
 export function buildJuryResponseFormat(allowUndecided: boolean = false): string {
   const stanceValues = allowUndecided 
-    ? '"Option A" | "Option B" | "Undecided"'
-    : '"Option A" | "Option B"';
+    ? '"<Side 1 label>" | "<Side 2 label>" | "Undecided"'
+    : '"<Side 1 label>" | "<Side 2 label>"';
 
   return `{
   "discussion": [
@@ -52,8 +53,8 @@ export function buildJuryResponseFormat(allowUndecided: boolean = false): string
   "summary": "1-3 word witty verdict",
   "verdict_narrative": "One sentence synthesizing the key debate point (max 150 chars)",
   "votes": {
-    "Option A": <number>,
-    "Option B": <number>${allowUndecided ? ',\n    "Undecided": <number>' : ''}
+    "<Side 1 label>": <number>,
+    "<Side 2 label>": <number>${allowUndecided ? ',\n    "Undecided": <number>' : ''}
   }
 }`;
 }
