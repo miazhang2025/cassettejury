@@ -444,7 +444,7 @@ export default function WriteupPage() {
           <div style={{ paddingTop: '40px' }}>
             <a
               href="/"
-              style={{ fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase', color: '#9B0808', textDecoration: 'none' }}
+              style={{ display: 'inline-block', fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase', color: '#ffffff', textDecoration: 'none', backgroundColor: '#9B0808', padding: '10px 20px', borderRadius: '6px' }}
             >
               ← Go to the jury
             </a>
@@ -686,6 +686,17 @@ export default function WriteupPage() {
               <p>&ldquo;No prototype, no focus group, no budget required.&rdquo;</p>
             </div>
           </section>
+
+          {/* ── BOTTOM CTA ── */}
+          <div className="wj-divider"></div>
+          <div style={{ paddingTop: '56px', paddingBottom: '16px', textAlign: 'center' }}>
+            <a
+              href="/"
+              style={{ display: 'inline-block', fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase', color: '#ffffff', textDecoration: 'none', backgroundColor: '#9B0808', padding: '10px 20px', borderRadius: '6px' }}
+            >
+              ← Go to the jury
+            </a>
+          </div>
 
           {/* ── FAN ART ── */}
           <div className="wj-divider"></div>
