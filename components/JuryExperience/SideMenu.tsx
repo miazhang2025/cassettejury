@@ -181,6 +181,19 @@ export const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, style }) =>
               </a>
             </p>
           </div>
+
+          {/* Write-up */}
+          <div>
+            <a
+              href="/writeup"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-xs px-3 py-2 rounded transition text-center font-medium text-white"
+              style={{ backgroundColor: '#9B0808' }}
+            >
+              Project Write-up ↗
+            </a>
+          </div>
         </div>
 
         {/* Footer */}

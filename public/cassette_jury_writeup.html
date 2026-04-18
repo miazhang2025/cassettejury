@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cassette Jury — Project Write-up</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #8B0000;
+    --red-light: #c0392b;
+    --red-pale: #fdf2f2;
+    --cream: #F7F3EE;
+    --cream-dark: #EDE8E1;
+    --ink: #1a1a1a;
+    --ink-mid: #444;
+    --ink-muted: #888;
+    --border: rgba(139,0,0,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.75;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 56px 0 48px;
+    text-align: center;
+    background: var(--cream);
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 39px,
+      rgba(139,0,0,0.04) 39px,
+      rgba(139,0,0,0.04) 40px
+    );
+    pointer-events: none;
+  }
+  .header-kicker {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--red);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(52px, 8vw, 88px);
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.0;
+    letter-spacing: -0.02em;
+  }
+  .header h1 em {
+    color: var(--red);
+    font-style: italic;
+  }
+  .header-tagline {
+    margin-top: 20px;
+    font-size: 18px;
+    color: var(--ink-mid);
+    font-weight: 300;
+    max-width: 520px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .header-meta {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-top: 32px;
+  }
+  .header-meta span {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+  }
+  .header-meta span b {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* ── LAYOUT ── */
+  .container {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+
+  section {
+    padding: 72px 0 0;
+  }
+  section:last-child {
+    padding-bottom: 96px;
+  }
+
+  /* ── SECTION HEADERS ── */
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--red);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 20px;
+    letter-spacing: -0.01em;
+  }
+  h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 400;
+    font-style: italic;
+    margin: 36px 0 12px;
+    color: var(--ink-mid);
+  }
+
+  p {
+    color: var(--ink-mid);
+    margin-bottom: 16px;
+    font-weight: 300;
+  }
+  p strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* ── PULL QUOTE ── */
+  .pull-quote {
+    border-left: 3px solid var(--red);
+    padding: 20px 0 20px 28px;
+    margin: 36px 0;
+  }
+  .pull-quote p {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-style: italic;
+    line-height: 1.5;
+    color: var(--ink);
+    margin: 0;
+    font-weight: 400;
+  }
+
+  /* ── DIVIDER ── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 56px 0 0;
+  }
+
+  /* ── FLOW DIAGRAM ── */
+  .diagram-wrap {
+    background: white;
+    border: 1px solid var(--cream-dark);
+    border-radius: 12px;
+    padding: 32px 24px;
+    margin: 32px 0;
+    overflow-x: auto;
+  }
+  .diagram-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 20px;
+  }
+
+  /* ── USER FLOW ── */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    min-width: 580px;
+  }
+  .flow-step {
+    flex: 1;
+    text-align: center;
+  }
+  .flow-bubble {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .flow-bubble.red { background: var(--red); color: white; }
+  .flow-bubble.pale { background: var(--red-pale); color: var(--red); border: 1px solid rgba(139,0,0,0.2); }
+  .flow-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .flow-sub {
+    font-size: 10px;
+    color: var(--ink-muted);
+    margin-top: 3px;
+    font-family: 'DM Mono', monospace;
+  }
+  .flow-arrow {
+    width: 32px;
+    flex-shrink: 0;
+    text-align: center;
+    color: var(--red);
+    font-size: 18px;
+    padding-bottom: 24px;
+  }
+
+  /* ── AI STACK TABLE ── */
+  .ai-stack {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 24px 0;
+    font-size: 14px;
+  }
+  .ai-stack thead tr {
+    border-bottom: 2px solid var(--ink);
+  }
+  .ai-stack th {
+    text-align: left;
+    padding: 8px 16px 10px 0;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    font-weight: 400;
+  }
+  .ai-stack td {
+    padding: 12px 16px 12px 0;
+    border-bottom: 1px solid var(--cream-dark);
+    vertical-align: top;
+    color: var(--ink-mid);
+    font-weight: 300;
+  }
+  .ai-stack td:first-child {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--red);
+    font-weight: 400;
+    white-space: nowrap;
+    padding-right: 24px;
+  }
+  .ai-stack td:nth-child(2) {
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .ai-stack tr:last-child td { border-bottom: none; }
+
+  /* ── JURY GRID ── */
+  .jury-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1px;
+    background: var(--cream-dark);
+    border: 1px solid var(--cream-dark);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 24px 0;
+  }
+  .jury-card {
+    background: white;
+    padding: 16px;
+  }
+  .jury-name {
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .jury-role {
+    font-size: 11px;
+    color: var(--ink-muted);
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 6px;
+  }
+  .jury-trait {
+    font-size: 12px;
+    color: var(--ink-mid);
+    font-style: italic;
+    line-height: 1.4;
+    font-family: 'Playfair Display', serif;
+  }
+  .jury-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+
+  /* ── TECH PILLARS ── */
+  .pillars {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: 28px 0;
+  }
+  .pillar {
+    background: white;
+    border: 1px solid var(--cream-dark);
+    border-top: 3px solid var(--red);
+    border-radius: 8px;
+    padding: 20px 18px;
+  }
+  .pillar-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--red);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .pillar-title {
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--ink);
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+  .pillar-body {
+    font-size: 12px;
+    color: var(--ink-muted);
+    line-height: 1.6;
+    font-weight: 300;
+  }
+
+  /* ── PROMPT ANATOMY ── */
+  .prompt-box {
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 24px;
+    margin: 24px 0;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+  }
+  .prompt-comment { color: #666; }
+  .prompt-key { color: #c0a060; }
+  .prompt-val { color: #80b080; }
+  .prompt-str { color: #8bb4d0; }
+  .prompt-red { color: #cc6666; }
+  .prompt-white { color: #ddd; }
+
+
+  /* ── FOOTER ── */
+  .footer {
+    border-top: 1px solid var(--border);
+    padding: 40px 0;
+    text-align: center;
+  }
+  .footer p {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0;
+  }
+  .footer strong { color: var(--red); }
+
+  @media (max-width: 600px) {
+    .pillars { grid-template-columns: 1fr; }
+    .header h1 { font-size: 44px; }
+    .jury-grid { grid-template-columns: 1fr 1fr; }
+    .states .state-name { width: 120px; font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══════════════════════════════════════════════════════ -->
+<div class="header">
+  <div class="header-kicker">New Media / Interactive Experience</div>
+  <h1>Cassette <em>Jury</em></h1>
+  <p class="header-tagline">A jury of your imaginary peers. Eleven AI characters, one creative verdict, zero focus groups.</p>
+  <div class="header-meta">
+    <span><b>Medium</b> &nbsp;Web / WebGL</span>
+    <span><b>Stack</b> &nbsp;Next.js · Three.js · Claude API</span>
+    <span><b>Characters</b> &nbsp;11</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ══ CONCEPT ══════════════════════════════════════════════════ -->
+  <section>
+    <div class="section-label">01 &nbsp;Concept</div>
+    <h2>The focus group you can fit in your pocket</h2>
+
+    <p>You're mid-project. Writing a script and stuck between two lines. Designing a flow and not sure if users need that extra prompt. Preparing a pitch and genuinely unsure whether the black trousers or the blue ones read better on stage. You need an outside perspective — not another AI that just agrees with you, but something closer to a small room of opinionated people who will actually push back.</p>
+
+    <p>That room is <strong>Cassette Jury</strong>. Eleven AI-simulated characters, each with their own profession, personality, and agenda, packed into a wooden box and ready to deliberate on demand. Submit any open-ended creative question, watch them argue — physically, as gooey 3D blob characters — and receive a verdict.</p>
+
+    <div class="pull-quote">
+      <p>"It is not a replacement for real user research. It is something more honest: a fast, irreverent, and oddly useful way to hear perspectives you hadn't considered, from people you couldn't have assembled, in the thirty seconds you actually have."</p>
+    </div>
+
+    <p>The name comes from the form factor. A small group of people — a focus group — compressed into something you can carry in your pocket. Like a cassette tape. Hence: <strong>Cassette Jury</strong>.</p>
+  </section>
+
+  <!-- ══ USER FLOW ══════════════════════════════════════════════ -->
+  <div class="divider"></div>
+  <section>
+    <div class="section-label">02 &nbsp;Experience</div>
+    <h2>How it works</h2>
+
+    <div class="diagram-wrap">
+      <div class="diagram-title">User journey — five states</div>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-bubble red">01</div>
+          <div class="flow-label">Select your jury</div>
+          <div class="flow-sub">Choose 9 of 11</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-bubble pale">02</div>
+          <div class="flow-label">Submit your question</div>
+          <div class="flow-sub">Open-ended</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-bubble pale">03</div>
+          <div class="flow-label">Jury deliberates</div>
+          <div class="flow-sub">Blobs fight</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-bubble pale">04</div>
+          <div class="flow-label">Verdict revealed</div>
+          <div class="flow-sub">With vote split</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-bubble pale">05</div>
+          <div class="flow-label">Hover each blob</div>
+          <div class="flow-sub">Their reasoning</div>
+        </div>
+      </div>
+    </div>
+
+    <p>The experience is designed to be self-explanatory — no tutorial, no onboarding. The wooden box, the blobby characters, the fighting animation: all of it communicates what to do before a word is read. Each juror has a distinct physical presence that reflects their personality. Frank, the Pittsburgh plumber, is low, wide, and immovable. Sable, the Gen Z chaos agent, is asymmetric and slightly off-balance. Murray, the semi-retired New York filmmaker, is a little slumped.</p>
+
+    <p>Once the AI returns its verdict, hovering each blob reveals their individual reasoning — written entirely in their own voice, in character, with no two sounding alike.</p>
+  </section>
+
+  <!-- ══ THE JURY ══════════════════════════════════════════════ -->
+  <div class="divider"></div>
+  <section>
+    <div class="section-label">03 &nbsp;Characters</div>
+    <h2>Meet the jury</h2>
+    <p>Eleven preset characters, covering a deliberate spread of profession, worldview, age, and communication style. The cast is designed so that most questions will produce a genuine split — no monoculture, no echo chamber.</p>
+
+    <div class="jury-grid">
+      <div class="jury-card">
+        <div class="jury-name"><span class="jury-dot" style="background:#E63946"></span>Margot Chen</div>
+        <div class="jury-role">Brand Strategist · NYC · 34</div>
+        <div class="jury-trait">"Speaks entirely in frameworks."</div>
+      </div>
+      <div class="jury-card">
+        <div class="jury-name"><span class="jury-dot" style="background:#457B9D"></span>Dev Kapoor</div>
+        <div class="jury-role">UX Designer · SF · 27</div>
+        <div class="jury-trait">"But did we test this?"</div>
+      </div>
+      <div class="jury-card">
+        <div class="jury-name"><span class="jury-dot" style="background:#F4A261"></span>Riz Okafor</div>
+        <div class="jury-role">Creative Director · London · 41</div>
+        <div class="jury-trait">"Right 70% of the time."</div>
+      </div>
+      <div class="jury-card">
+        <div class="jury-name"><span class="jury-dot" style="background:#52B788"></span>Yuki Tanaka</div>
+        <div class="jury-role">Copywriter · Tokyo · 29</div>
+        <div class="jury-trait">"Six headlines, all hated equally."</div>
+      </div>
+      <div class="jury-card">
+        <div class="jury-name"><span class="jury-dot" style="background:#9B5DE5"></span>Sable Kim</div>
+        <div class="jury-role">Content Strategist · LA · 22</div>
+        <div class="jury-trait">"Knows what goes viral. Can't explain it."</div>
+      </div>
+      <div class="jury-card">
+        <div class="jury-name"><span class="jury-dot" style="background:#2A9D8F"></span>Petra Voss</div>
+        <div class="jury-role">Product Manager · Berlin · 39</div>
+        <div class="jury-trait">"Opinions on your process first."</div>
+      </div>
+      <div class="jury-card">
+        <div class="jury-name"><span class="jury-dot" style="background:#F72585"></span>Cleo Marchetti</div>
+        <div class="jury-role">Illustrator · Milan · 46</div>
+        <div class="jury-trait">"Describes colours using food."</div>
+      </div>
+      <div class="jury-card">
+        <div class="jury-name"><span class="jury-dot" style="background:#FB8500"></span>Jasper Holt</div>
+        <div class="jury-role">Startup Founder · Austin · 31</div>
+        <div class="jury-trait">"Visionary or delusional. Identical confidence."</div>
+      </div>
+      <div class="jury-card">
+        <div class="jury-name"><span class="jury-dot" style="background:#8338EC"></span>Noor Al-Rashid</div>
+        <div class="jury-role">Cultural Strategist · Dubai · 35</div>
+        <div class="jury-trait">"Brings the room into the room."</div>
+      </div>
+      <div class="jury-card">
+        <div class="jury-name"><span class="jury-dot" style="background:#6D6875"></span>Murray Fink</div>
+        <div class="jury-role">Filmmaker · New York · 61</div>
+        <div class="jury-trait">"References a film nobody's seen."</div>
+      </div>
+      <div class="jury-card">
+        <div class="jury-name"><span class="jury-dot" style="background:#6B705C"></span>Frank Kowalski</div>
+        <div class="jury-role">Plumber · Pittsburgh · 54</div>
+        <div class="jury-trait">"But does it actually do anything?"</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ AI TECHNIQUES ══════════════════════════════════════════ -->
+  <div class="divider"></div>
+  <section>
+    <div class="section-label">04 &nbsp;AI Architecture</div>
+    <h2>AI as structural backbone</h2>
+
+    <p>AI is not a feature layer in Cassette Jury — it is the engine behind the entire system, operating across three distinct domains: jury simulation, character design, and visual asset generation. The same character data object that gives Margot her voice also shapes her visual silhouette and drives her 3D blob form.</p>
+
+    <div class="pillars">
+      <div class="pillar">
+        <div class="pillar-num">01 &nbsp;/&nbsp; VERDICT ENGINE</div>
+        <div class="pillar-title">Jury simulation & prompt engineering</div>
+        <div class="pillar-body">Anthropic Claude API. Modular prompt assembly. Structured JSON output. Few-shot templates. Dynamic instruction flags.</div>
+      </div>
+      <div class="pillar">
+        <div class="pillar-num">02 &nbsp;/&nbsp; CHARACTER DESIGN</div>
+        <div class="pillar-title">AI character & art generation</div>
+        <div class="pillar-body">Claude as expert character designer. Google Gemini image generation. Prompt-anchored claymation style consistency.</div>
+      </div>
+      <div class="pillar">
+        <div class="pillar-num">03 &nbsp;/&nbsp; 3D PIPELINE</div>
+        <div class="pillar-title">Procedural mesh generation</div>
+        <div class="pillar-body">Images → Tripo AI image-to-3D conversion → GLB export. Loaded into WebGL scene via Three.js.</div>
+      </div>
+    </div>
+
+    <h3>The verdict engine</h3>
+    <p>The Anthropic Claude API drives the jury simulation. Each character is defined in a structured dataset with a <strong>voiceProfile</strong> field — the prompt-critical field that encodes behavioral instructions directly: <em>"Blunt, practical, baffled by abstraction"</em> (Frank) or <em>"Confident, jargon-fluent, occasionally condescending"</em> (Margot). This separation means any character can be updated or swapped without touching the prompt logic.</p>
+
+    <p>The system prompt enforces a strict JSON output contract. Per-member fields include stance, reasoning, and a direct quote. The top-level response includes a punchy summary, a dominant direction label, and a numeric vote split. Inline few-shot templates embedded in the user message condition the model to reproduce the exact schema — no runtime parsing instructions needed.</p>
+
+    <div class="diagram-wrap">
+      <div class="diagram-title">JSON output contract — abbreviated schema</div>
+      <div class="prompt-box">
+<span class="prompt-white">{</span><br>
+&nbsp;&nbsp;<span class="prompt-key">"summary"</span><span class="prompt-white">:</span> <span class="prompt-str">"One punchy verdict line"</span><span class="prompt-white">,</span><br>
+&nbsp;&nbsp;<span class="prompt-key">"dominant_direction"</span><span class="prompt-white">:</span> <span class="prompt-str">"Go bolder"</span><span class="prompt-white">,</span><br>
+&nbsp;&nbsp;<span class="prompt-key">"split"</span><span class="prompt-white">:</span> <span class="prompt-val">false</span><span class="prompt-white">,</span><br>
+&nbsp;&nbsp;<span class="prompt-key">"vote_breakdown"</span><span class="prompt-white">: [</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="prompt-white">{ </span><span class="prompt-key">"label"</span><span class="prompt-white">:</span> <span class="prompt-str">"Go bolder"</span><span class="prompt-white">,</span> <span class="prompt-key">"count"</span><span class="prompt-white">:</span> <span class="prompt-val">7</span> <span class="prompt-white">},</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="prompt-white">{ </span><span class="prompt-key">"label"</span><span class="prompt-white">:</span> <span class="prompt-str">"Stay restrained"</span><span class="prompt-white">,</span> <span class="prompt-key">"count"</span><span class="prompt-white">:</span> <span class="prompt-val">2</span> <span class="prompt-white">}</span><br>
+&nbsp;&nbsp;<span class="prompt-white">],</span><br>
+&nbsp;&nbsp;<span class="prompt-key">"juror_verdicts"</span><span class="prompt-white">: [</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="prompt-white">{</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="prompt-key">"name"</span><span class="prompt-white">:</span> <span class="prompt-str">"Frank Kowalski"</span><span class="prompt-white">,</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="prompt-key">"stance"</span><span class="prompt-white">:</span> <span class="prompt-str">"Go bolder"</span><span class="prompt-white">,</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="prompt-key">"reasoning"</span><span class="prompt-white">:</span> <span class="prompt-str">"2–3 sentences in Frank's voice."</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="prompt-white">}</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="prompt-comment">// ... ×9 jurors</span><br>
+&nbsp;&nbsp;<span class="prompt-white">]</span><br>
+<span class="prompt-white">}</span>
+      </div>
+    </div>
+
+    <h3>Character design pipeline</h3>
+    <p>A second Claude invocation acts as an expert character designer. Given a raw user draft, it synthesises a canonical character profile in a single structured pass — generating the silhouette description, pronouns, location, and expanded bio. That <strong>silhouette</strong> field — written natural language like <em>"Wide, low, solid. The most grounded-looking blob. Unmovable."</em> — then feeds directly into the Gemini image generation prompt.</p>
+
+    <p>Google Gemini produces two mood-variant images per character: one happy and engaged, one thoughtful and confident. Claymation-style visual consistency across all eleven characters is enforced entirely through prompt-level style anchoring — no manual post-processing, no LoRA, no fine-tuning. Selected images are then passed to <strong>Tripo AI</strong> for image-to-3D conversion, which generates a fully textured GLB mesh ready to load directly into the WebGL scene.</p>
+
+    <div class="diagram-wrap">
+      <div class="diagram-title">Art creation pipeline — text → image → 3D mesh</div>
+      <div class="flow" style="min-width:500px">
+        <div class="flow-step">
+          <div class="flow-bubble red" style="font-size:11px">TEXT</div>
+          <div class="flow-label">Silhouette field</div>
+          <div class="flow-sub">Natural language</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-bubble pale">CLAUDE</div>
+          <div class="flow-label">Character profile</div>
+          <div class="flow-sub">Structured pass</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-bubble pale">GEMINI</div>
+          <div class="flow-label">2D image ×2</div>
+          <div class="flow-sub">Mood variants</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-bubble pale">TRIPO</div>
+          <div class="flow-label">3D mesh GLB</div>
+          <div class="flow-sub">Image-to-3D</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-bubble pale">SCENE</div>
+          <div class="flow-label">Live in Three.js</div>
+          <div class="flow-sub">WebGL</div>
+        </div>
+      </div>
+    </div>
+
+    <table class="ai-stack">
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th>Role</th>
+          <th>Output</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Claude (Anthropic)</td>
+          <td>Jury verdict engine</td>
+          <td>Structured JSON with per-juror stances and reasoning</td>
+        </tr>
+        <tr>
+          <td>Claude (Anthropic)</td>
+          <td>Character designer</td>
+          <td>Canonical character profiles from raw drafts</td>
+        </tr>
+        <tr>
+          <td>Gemini (Google)</td>
+          <td>Image generation</td>
+          <td>Two mood-variant PNG images per character</td>
+        </tr>
+        <tr>
+          <td>Tripo AI</td>
+          <td>Image-to-3D conversion</td>
+          <td>Textured GLB mesh per character from 2D reference image</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ══ RENDERING & PHYSICS ══════════════════════════════════════ -->
+  <div class="divider"></div>
+  <section>
+    <div class="section-label">05 &nbsp;Rendering & Physics</div>
+    <h2>The scene</h2>
+
+    <p>The 3D scene is built in Three.js with a custom React hook (<strong>useThreeJsScene</strong>) that isolates all WebGL lifecycle from the component tree — no React Three Fiber, direct imperative control. Each blob's GLB is loaded via GLTFLoader, cached to prevent redundant requests, and rendered with <strong>MeshToonMaterial</strong> for cel-shading. Morph targets from the GLB are preserved for blendshape-driven facial animation.</p>
+
+    <p>Physics is a fully custom Euler integration loop running at ~60fps. During the fight sequence, each blob is pulled toward a randomly assigned target with force capped at 25 units, elastic push-apart forces trigger on collision, and hard box bounds reflect velocity at the walls. Gravity is intentionally disabled during fighting to keep blobs airborne. Camera shake runs as a sinusoidal oscillator with dynamic frequency variation.</p>
+
+    <p>The particle system uses a pre-allocated pool of 200 billboard quads. Two emission modes run in parallel during combat: ambient smoke at one particle per blob every six frames, and impact bursts of two to three particles at near-collision midpoints. Each particle carries its own lifetime, velocity, and opacity fade curve, billboarding via <strong>mesh.lookAt(camera)</strong> per frame.</p>
+  </section>
+
+  <!-- ══ CLOSING ══════════════════════════════════════════════════ -->
+  <div class="divider"></div>
+  <section>
+    <div class="section-label">06 &nbsp;Why it matters</div>
+    <h2>A toy with an actual point</h2>
+    <p>Cassette Jury exists in the gap between "I need feedback" and "I have time and money to get it." It doesn't replace the real thing. It fills a specific and common moment: the thirty seconds between an idea and a decision, when you just need to hear a perspective that isn't your own.</p>
+    <p>The technical ambition — the AI simulation, the character pipeline, the physics, the 3D rendering — is in service of one thing: making that thirty-second conversation feel like it actually happened. The blobs fight because real disagreement is physical. The verdict is a single line because that's all you need. The characters are opinionated because that's the only way the feedback is useful.</p>
+    <div class="pull-quote">
+      <p>"No prototype, no focus group, no budget required."</p>
+    </div>
+  </section>
+
+</div>
+
+<div class="footer">
+  <div class="container">
+    <p><strong>Cassette Jury</strong> &nbsp;·&nbsp; New Media / Interactive Experience &nbsp;·&nbsp; Built with Claude API · Three.js · Next.js</p>
+  </div>
+</div>
+
+</body>
+</html>
