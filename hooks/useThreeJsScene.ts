@@ -35,6 +35,9 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
   const gltfLoaderRef = useRef<GLTFLoader | null>(null);
   const stageRef = useRef<THREE.Group | null>(null);
   const blobBasePositionsRef = useRef<Map<BlobGeometry, THREE.Vector3>>(new Map());
+  // Queue for staggered GLB loading on memory-constrained devices (iOS Safari)
+  const loadQueueRef = useRef<Array<() => void>>([]);
+  const loadQueueActiveRef = useRef(false);
 
   const [isReady, setIsReady] = useState(false);
   const [hoveredBlobInfo, setHoveredBlobInfo] = useState<HoveredBlobInfo>({
@@ -129,6 +132,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
 
     // Detect mobile for responsive adjustments
     const isMobile = window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0);
+    const isSafariIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !/CriOS/.test(navigator.userAgent);
 
     // Scene setup
     const scene = new THREE.Scene();
@@ -150,12 +154,17 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     cameraRef.current = camera;
 
     // Renderer
-    // preserveDrawingBuffer only on desktop: on iOS Safari it doubles GPU memory usage
-    // and causes WebGL context loss. Mobile screenshot button is hidden so it's not needed there.
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: !isMobile });
+    // On iOS Safari: no antialias + pixel ratio 1 to minimise GPU memory usage.
+    // preserveDrawingBuffer only on desktop: on iOS it doubles framebuffer memory.
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: !isSafariIOS,
+      alpha: false,
+      preserveDrawingBuffer: !isMobile,
+    });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.shadowMap.enabled = true;
+    renderer.setPixelRatio(isSafariIOS ? 1 : window.devicePixelRatio);
+    renderer.shadowMap.enabled = !isSafariIOS;
     rendererRef.current = renderer;
 
     // Lighting
@@ -167,10 +176,8 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     keyLight.castShadow = true;
     scene.add(keyLight);
 
-    // Load stage model — skip on iOS Safari to avoid memory pressure
-    const isSafariIOS =
-      /iPad|iPhone|iPod/.test(navigator.userAgent) && !/CriOS/.test(navigator.userAgent);
-    if (!isSafariIOS) {
+    // Load stage model — on iOS Safari delay it until after blobs start loading
+    const loadStage = () => {
       const gltfLoader = new GLTFLoader();
       const stagePath = isMobile ? '/stage-mobile.glb' : '/stage.glb';
       gltfLoader.load(stagePath, (gltf) => {
@@ -180,8 +187,8 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
         stage.position.y = -0.7;
         stage.traverse((child) => {
           if (child instanceof THREE.Mesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
+            child.castShadow = !isSafariIOS;
+            child.receiveShadow = !isSafariIOS;
             if (child.geometry) {
               child.geometry.computeVertexNormals();
             }
@@ -190,6 +197,12 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
         stageRef.current = stage;
         scene.add(stage);
       });
+    };
+    // On iOS Safari load stage last (after all 7 blobs × 250ms stagger = ~1.75s)
+    if (isSafariIOS) {
+      setTimeout(loadStage, 2000);
+    } else {
+      loadStage();
     }
 
     // Physics simulator
@@ -756,92 +769,87 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       return;
     }
 
-    // iOS Safari (non-Chrome) OOMs loading multiple GLBs — use colored spheres instead
+    // iOS Safari (non-Chrome) OOMs when loading all GLBs simultaneously.
+    // Stagger loads 250ms apart so the JS engine can GC between each GPU upload.
     const isSafariIOS =
       typeof window !== 'undefined' &&
       /iPad|iPhone|iPod/.test(navigator.userAgent) &&
       !/CriOS/.test(navigator.userAgent);
 
-    if (isSafariIOS) {
-      const blob = new BlobGeometry(color, position, 0.8);
-      if (blob.mesh) {
-        // Apply jury color so blobs are visually distinct
-        blob.mesh.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            (child.material as THREE.MeshToonMaterial).color.set(color);
-          }
-        });
-        sceneRef.current.add(blob.mesh);
-        blobsRef.current.set(id, blob);
-        physicsRef.current.addBlob(blob);
-        originalBlobPositionsRef.current.set(blob, position.clone());
-        blobBasePositionsRef.current.set(blob, position.clone());
-        blobToJuryRef.current.set(blob, juryMember);
+    const doLoad = () => {
+      if (!gltfLoaderRef.current) {
+        gltfLoaderRef.current = new GLTFLoader();
       }
-      return;
-    }
+      const loader = gltfLoaderRef.current;
+      const modelPath = `/jury/${id}.glb`;
 
-    if (!gltfLoaderRef.current) {
-      gltfLoaderRef.current = new GLTFLoader();
-    }
+      const placeBlob = (model: THREE.Object3D) => {
+        const blob = new BlobGeometry(color, position, model);
+        if (blob.mesh && sceneRef.current && physicsRef.current) {
+          sceneRef.current.add(blob.mesh);
+          blobsRef.current.set(id, blob);
+          physicsRef.current.addBlob(blob);
+          originalBlobPositionsRef.current.set(blob, position.clone());
+          blobBasePositionsRef.current.set(blob, position.clone());
+          blobToJuryRef.current.set(blob, juryMember);
+        }
+        // Kick off next item in queue
+        if (isSafariIOS) {
+          setTimeout(() => {
+            const next = loadQueueRef.current.shift();
+            if (next) { next(); } else { loadQueueActiveRef.current = false; }
+          }, 250);
+        }
+      };
 
-    const loader = gltfLoaderRef.current;
-    const modelPath = `/jury/${id}.glb`;
-
-    // Check if model is already cached
-    if (modelCacheRef.current.has(modelPath)) {
-      const cachedModel = modelCacheRef.current.get(modelPath)!;
-      const clonedModel = cachedModel.clone();
-      const cachedAnimations = animationCacheRef.current.get(modelPath) || [];
-      
-      const blob = new BlobGeometry(color, position, clonedModel);
-      if (blob.mesh) {
-        sceneRef.current.add(blob.mesh);
-        blobsRef.current.set(id, blob);
-        physicsRef.current.addBlob(blob);
-        originalBlobPositionsRef.current.set(blob, position.clone());
-        blobBasePositionsRef.current.set(blob, position.clone());
-        blobToJuryRef.current.set(blob, juryMember);
-
+      // Check cache first
+      if (modelCacheRef.current.has(modelPath)) {
+        const cloned = modelCacheRef.current.get(modelPath)!.clone();
+        placeBlob(cloned);
+        return;
       }
-    } else {
-      // Load the model
+
       loader.load(
         modelPath,
         (gltf) => {
-          // Cache the loaded model and animations
           modelCacheRef.current.set(modelPath, gltf.scene);
-          if (gltf.animations && gltf.animations.length > 0) {
+          if (gltf.animations?.length) {
             animationCacheRef.current.set(modelPath, gltf.animations);
           }
-
-          const clonedModel = gltf.scene.clone();
-          const blob = new BlobGeometry(color, position, clonedModel);
-
-          if (blob.mesh) {
-            sceneRef.current!.add(blob.mesh);
-            blobsRef.current.set(id, blob);
-            physicsRef.current!.addBlob(blob);
-            originalBlobPositionsRef.current.set(blob, position.clone());
-            blobBasePositionsRef.current.set(blob, position.clone());
-            blobToJuryRef.current.set(blob, juryMember);
-          }
+          placeBlob(gltf.scene.clone());
         },
         undefined,
         (error) => {
           console.error(`Failed to load model for ${id}:`, error);
-          // Fallback to sphere
+          // Fallback sphere on load error
           const blob = new BlobGeometry(color, position, 0.8);
-          if (blob.mesh) {
-            sceneRef.current!.add(blob.mesh);
+          if (blob.mesh && sceneRef.current && physicsRef.current) {
+            sceneRef.current.add(blob.mesh);
             blobsRef.current.set(id, blob);
-            physicsRef.current!.addBlob(blob);
+            physicsRef.current.addBlob(blob);
             originalBlobPositionsRef.current.set(blob, position.clone());
             blobBasePositionsRef.current.set(blob, position.clone());
             blobToJuryRef.current.set(blob, juryMember);
           }
+          if (isSafariIOS) {
+            setTimeout(() => {
+              const next = loadQueueRef.current.shift();
+              if (next) { next(); } else { loadQueueActiveRef.current = false; }
+            }, 250);
+          }
         }
       );
+    };
+
+    if (isSafariIOS) {
+      loadQueueRef.current.push(doLoad);
+      if (!loadQueueActiveRef.current) {
+        loadQueueActiveRef.current = true;
+        const first = loadQueueRef.current.shift();
+        if (first) first();
+      }
+    } else {
+      doLoad();
     }
   };
 
