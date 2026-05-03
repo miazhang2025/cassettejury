@@ -9,6 +9,7 @@ import { ResultBox } from './ResultBox';
 import { StatusBar } from './ControlBar';
 import { SideMenu } from './SideMenu';
 import { JuryStage } from './JuryStage';
+import { MobileJuryStage } from './MobileJuryStage';
 import { APP_CONSTANTS } from '@/config/constants';
 import { playSound, stopSound, stopAllSounds, playRandomSound } from '@/utils/audio';
 import { SOUND_FOLDERS, VOLUME_DEFAULTS, AUDIO_FILES } from '@/config/sounds';
@@ -32,6 +33,10 @@ export const ExperienceContainer: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [triggerFight, setTriggerFight] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' &&
+    (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0))
+  );
   const [fightingAudioFiles, setFightingAudioFiles] = useState<string[]>([]);
   const [resultAudioFiles, setResultAudioFiles] = useState<string[]>([]);
   const [submittedQuestion, setSubmittedQuestion] = useState<string | null>(null);
@@ -41,6 +46,18 @@ export const ExperienceContainer: React.FC = () => {
   const currentFightingAudioRef = useRef<HTMLAudioElement | null>(null);
   const resultAudioRefsRef = useRef<HTMLAudioElement[]>([]);
   const fightingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Update isMobile on resize / orientation change
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(
+        window.innerWidth < 768 ||
+        ('ontouchstart' in window && navigator.maxTouchPoints > 0)
+      );
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Load audio files from folders on mount
   useEffect(() => {
@@ -291,10 +308,9 @@ export const ExperienceContainer: React.FC = () => {
 
   return (
     <div
-      className="overflow-hidden flex flex-col"
+      className="overflow-hidden flex flex-col full-dvh"
       style={{ 
         width: '100vw', 
-        height: '100vh',
         backgroundColor: 'transparent', 
         border: '20px solid #E5E5E1',
         boxSizing: 'border-box',
@@ -306,13 +322,23 @@ export const ExperienceContainer: React.FC = () => {
       {/* Main Content Area - Full screen canvas */}
       <div className="flex-1 w-full overflow-hidden" style={{ minHeight: 0, position: 'relative' }}>
         {/* Jury Stage (Canvas with Three.js) - fills entire area, z-index 0 */}
-        <JuryStage
-          triggerFight={triggerFight}
-          onFightComplete={handleFightComplete}
-          showResults={showResults}
-          discussionResult={discussionResult}
-          isProcessing={isAIProcessing}
-        />
+        {isMobile ? (
+          <MobileJuryStage
+            triggerFight={triggerFight}
+            onFightComplete={handleFightComplete}
+            showResults={showResults}
+            discussionResult={discussionResult}
+            isProcessing={isAIProcessing}
+          />
+        ) : (
+          <JuryStage
+            triggerFight={triggerFight}
+            onFightComplete={handleFightComplete}
+            showResults={showResults}
+            discussionResult={discussionResult}
+            isProcessing={isAIProcessing}
+          />
+        )}
 
         {/* Input or Result Box (floating, overlaid on canvas, z-index 30) */}
         <InputBox onSubmit={handleSubmitQuestion} isLoading={isAIProcessing} showResults={showResults} submittedQuestion={submittedQuestion} onResetQuestion={handleResetQuestion} />

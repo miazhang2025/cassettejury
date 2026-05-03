@@ -1,8 +1,16 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { ExperienceContainer } from '@/components/JuryExperience/ExperienceContainer';
+import { LoadingScreen } from '@/components/LandingPage/LoadingScreen';
 
 export default function JuryPage() {
-  return <ExperienceContainer />;
+  const [isLoading, setIsLoading] = useState(true);
+
+  return (
+    <>
+      {isLoading && <LoadingScreen onComplete={() => setIsLoading(false)} />}
+      <ExperienceContainer />
+    </>
+  );
 }

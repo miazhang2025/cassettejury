@@ -279,6 +279,50 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
     setShowCard(false);
   };
 
+  const isMobile =
+    typeof window !== 'undefined' &&
+    (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0));
+
+  const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchMovedRef = React.useRef(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const startX = touch.clientX;
+    const startY = touch.clientY;
+    touchMovedRef.current = false;
+
+    longPressTimerRef.current = setTimeout(() => {
+      if (!touchMovedRef.current) {
+        handleMouseEnter();
+      }
+    }, 500);
+
+    const onMove = (me: TouchEvent) => {
+      const t = me.touches[0];
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      if (Math.sqrt(dx * dx + dy * dy) > 10) {
+        touchMovedRef.current = true;
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+        }
+      }
+    };
+    const onEnd = () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      setShowCard(false);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+    };
+    document.addEventListener('touchmove', onMove, { passive: true });
+    document.addEventListener('touchend', onEnd, { passive: true });
+  };
+
   const borderColor = isSelected ? '#9B0808' : 'transparent';
   const borderWidth = isSelected ? 3 : 0;
 
@@ -294,8 +338,9 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
           pointerEvents: maxSelected && !isSelected ? 'none' : 'auto',
         }}
         onClick={handleClick}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseEnter={isMobile ? undefined : handleMouseEnter}
+        onMouseLeave={isMobile ? undefined : handleMouseLeave}
+        onTouchStart={isMobile ? handleTouchStart : undefined}
       >
         <canvas ref={canvasRef} className="w-full h-full" />
       </div>

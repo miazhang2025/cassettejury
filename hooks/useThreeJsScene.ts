@@ -103,8 +103,10 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
         }
       }
       
-      // Apply position offset after resetting blobs
-      const offsetX = -1;
+      // Apply position offset after resetting blobs.
+      // Only offset on desktop (right-sidebar); mobile ResultBox is bottom-anchored so no shift needed.
+      const isMobile = window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0);
+      const offsetX = isMobile ? 0 : -1;
       
       // Apply offset to stage
       if (stageRef.current) {
@@ -131,9 +133,10 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     // Scene setup
     const scene = new THREE.Scene();
     
-    // Load background image
+    // Load background image — use mobile-optimised asset on small screens
     const textureLoader = new THREE.TextureLoader();
-    textureLoader.load('/velvet-bg.png', (texture) => {
+    const bgPath = isMobile ? '/bg-mobile.png' : '/velvet-bg.png';
+    textureLoader.load(bgPath, (texture) => {
       scene.background = texture;
     });
     
@@ -147,7 +150,9 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     cameraRef.current = camera;
 
     // Renderer
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
+    // preserveDrawingBuffer only on desktop: on iOS Safari it doubles GPU memory usage
+    // and causes WebGL context loss. Mobile screenshot button is hidden so it's not needed there.
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: !isMobile });
     renderer.setSize(width, height);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
@@ -162,9 +167,10 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     keyLight.castShadow = true;
     scene.add(keyLight);
 
-    // Load stage model
+    // Load stage model — use mobile-optimised asset on small screens
     const gltfLoader = new GLTFLoader();
-    gltfLoader.load('/stage.glb', (gltf) => {
+    const stagePath = isMobile ? '/stage-mobile.glb' : '/stage.glb';
+    gltfLoader.load(stagePath, (gltf) => {
       const stage = gltf.scene;
       
       // Rotate -90 degrees on Y axis and scale to 5
@@ -511,8 +517,9 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       cameraTheta += (targetTheta - cameraTheta) * SMOOTHING_FACTOR;
       cameraDistance += (targetDistance - cameraDistance) * SMOOTHING_FACTOR;
 
-      // Calculate camera shift based on whether results are showing
-      const cameraShiftX = showResults && discussionResult ? -2 : 0; // Shift left by 2 units when results show
+      // Calculate camera shift based on whether results are showing.
+      // Only shift on desktop (right-sidebar layout); mobile ResultBox slides up from bottom so no shift needed.
+      const cameraShiftX = showResults && discussionResult && !isMobile ? -2 : 0;
 
       // Subtle camera animation on load - pull back from close-up to normal distance
       if (cameraAnimationTime < CAMERA_ANIMATION_DURATION) {

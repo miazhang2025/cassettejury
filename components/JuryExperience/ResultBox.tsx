@@ -17,6 +17,10 @@ const slideInStyle: React.CSSProperties = {
   animation: 'slideInFromRight 0.5s ease-out forwards',
 };
 
+const slideInMobileStyle: React.CSSProperties = {
+  animation: 'slideInFromBottom 0.5s ease-out forwards',
+};
+
 export const ResultBox: React.FC<ResultBoxProps> = ({
   result,
   showResult,
@@ -25,6 +29,9 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
   style,
 }) => {
   const router = useRouter();
+  const isMobile =
+    typeof window !== 'undefined' &&
+    (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0));
   if (!showResult || !result) return null;
 
   const buildFontEmbedCSS = async (): Promise<string> => {
@@ -103,6 +110,16 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
           opacity: 1;
         }
       }
+      @keyframes slideInFromBottom {
+        from {
+          transform: translateY(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
     `;
     document.head.appendChild(style);
     return () => {
@@ -114,20 +131,21 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
   if (result.error) {
     return (
       <div
-        className="fixed inset-0 md:inset-auto md:right-0 h-screen w-full md:w-80 overflow-y-auto flex flex-col shadow-lg"
+        className={isMobile
+          ? 'fixed bottom-0 left-0 right-0 overflow-y-auto flex flex-col shadow-lg'
+          : 'fixed right-0 top-0 h-screen w-80 overflow-y-auto flex flex-col shadow-lg'
+        }
         style={{
           backgroundImage: 'url(/sidebar.webp)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          borderLeft: '2px solid #ffb3b3',
           zIndex: 50,
           pointerEvents: 'auto',
-          ...slideInStyle,
-          top: 'auto',
+          ...(isMobile ? slideInMobileStyle : slideInStyle),
           ...style,
         }}
       >
-        <div className="p-8 sm:p-12 space-y-4 flex-1">
+        <div className={isMobile ? 'pt-8 pb-8 px-14 space-y-4 flex-1' : 'p-10 space-y-4 flex-1'}>
           <h2 className="text-xl sm:text-2xl font-bold" style={{ color: '#9B0808' }}>
             Error
           </h2>
@@ -143,7 +161,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
         </div>
 
         {/* Button Footer */}
-        <div className="p-8 sm:p-12 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
+        <div className={isMobile ? 'pt-6 pb-6 px-14 space-y-3 border-t' : 'p-10 space-y-3 border-t'} style={{ borderColor: '#CCCCCC' }}>
           <button
             type="button"
             onClick={onRetry}
@@ -164,26 +182,28 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
           >
             Ask Again
           </button>
-          <button
-            type="button"
-            onClick={handleScreenshot}
-            className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
-            style={{
-              backgroundColor: '#9B0808',
-              color: '#E5E5E1',
-              cursor: 'pointer',
-              border: 'none',
-              pointerEvents: 'auto',
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLButtonElement).style.backgroundColor = '#9B0808';
-            }}
-          >
-            Screenshot
-          </button>
+          {!isMobile && (
+            <button
+              type="button"
+              onClick={handleScreenshot}
+              className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
+              style={{
+                backgroundColor: '#9B0808',
+                color: '#E5E5E1',
+                cursor: 'pointer',
+                border: 'none',
+                pointerEvents: 'auto',
+              }}
+              onMouseEnter={(e) => {
+                (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
+              }}
+              onMouseLeave={(e) => {
+                (e.target as HTMLButtonElement).style.backgroundColor = '#9B0808';
+              }}
+            >
+              Screenshot
+            </button>
+          )}
           <button
             type="button"
             onClick={() => router.push('/')}
@@ -219,19 +239,24 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
 
   return (
     <div
-      className="fixed inset-0 md:inset-auto md:right-0 md:top-0 h-screen w-full md:w-80 overflow-y-auto flex flex-col shadow-lg"
+      className={isMobile
+        ? 'fixed bottom-0 left-0 right-0 overflow-y-auto flex flex-col shadow-lg'
+        : 'fixed right-0 top-0 h-screen w-80 overflow-y-auto flex flex-col shadow-lg'
+      }
       style={{
         backgroundImage: 'url(/sidebar.webp)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        borderLeft: '2px solid #CCCCCC',
+        ...(isMobile
+          ? { borderTop: '2px solid #CCCCCC', height: '33vh' }
+          : { borderLeft: '2px solid #CCCCCC', height: '100vh' }),
         zIndex: 40,
         pointerEvents: 'auto',
-        ...slideInStyle,
+        ...(isMobile ? slideInMobileStyle : slideInStyle),
         ...style,
       }}
     >
-      <div className="p-8 sm:p-12 space-y-6 flex-1">
+      <div className={isMobile ? 'pt-8 pb-8 px-14 space-y-6 flex-1' : 'p-10 space-y-6 flex-1'}>
         {/* Summary */}
         <div>
           <p className="text-xs sm:text-sm" style={{ color: '#4a4a4a' }}>
@@ -273,7 +298,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
       </div>
 
       {/* Button Footer */}
-      <div className="p-8 sm:p-12 space-y-3 border-t" style={{ borderColor: '#CCCCCC' }}>
+      <div className={isMobile ? 'pt-6 pb-6 px-14 space-y-3 border-t' : 'p-10 space-y-3 border-t'} style={{ borderColor: '#CCCCCC' }}>
         <button
           type="button"
           onClick={onRetry}
@@ -294,26 +319,28 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
         >
           Ask Again
         </button>
-        <button
-          type="button"
-          onClick={handleScreenshot}
-          className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
-          style={{
-            backgroundColor: '#9B0808',
-            color: '#E5E5E1',
-            cursor: 'pointer',
-            border: 'none',
-            pointerEvents: 'auto',
-          }}
-          onMouseEnter={(e) => {
-            (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
-          }}
-          onMouseLeave={(e) => {
-            (e.target as HTMLButtonElement).style.backgroundColor = '#9B0808';
-          }}
-        >
-          Screenshot
-        </button>
+        {!isMobile && (
+          <button
+            type="button"
+            onClick={handleScreenshot}
+            className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
+            style={{
+              backgroundColor: '#9B0808',
+              color: '#E5E5E1',
+              cursor: 'pointer',
+              border: 'none',
+              pointerEvents: 'auto',
+            }}
+            onMouseEnter={(e) => {
+              (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
+            }}
+            onMouseLeave={(e) => {
+              (e.target as HTMLButtonElement).style.backgroundColor = '#9B0808';
+            }}
+          >
+            Screenshot
+          </button>
+        )}
         <button
           type="button"
           onClick={() => router.push('/')}

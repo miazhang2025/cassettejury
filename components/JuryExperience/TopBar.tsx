@@ -73,13 +73,13 @@ export const TopBar: React.FC<TopBarProps> = ({ onMenuClick, style }) => {
 
   return (
     <div
-      className="fixed top-0 left-0 w-full h-16 md:h-20 px-4 md:px-6 lg:px-12 flex items-center justify-between"
+      className="fixed top-2 left-2 w-full h-16 md:h-20 px-4 md:px-6 lg:px-12 flex items-center justify-between"
       style={style}
     >
       {/* Menu button */}
       <button
         onClick={onMenuClick}
-        className="p-2 rounded-lg hover:bg-gray-200 transition mt-2 cursor-pointer"
+        className="p-2 rounded-lg hover:bg-gray-200 transition mt-4 cursor-pointer"
         style={{ backgroundColor: 'transparent' }}
         aria-label="Open menu"
       >

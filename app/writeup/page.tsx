@@ -408,6 +408,46 @@ const styles = `
   }
   .wj-footer strong { color: var(--red); }
 
+  /* VIDEO */
+  .wj-video-wrap {
+    margin: 40px 0 0;
+    border-radius: 10px;
+    overflow: hidden;
+    line-height: 0;
+  }
+  .wj-video-wrap video {
+    width: 100%;
+    height: auto;
+    max-height: 50vh;
+    display: block;
+  }
+
+  /* CTA BUTTON */
+  .wj-cta-btn {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #ffffff;
+    text-decoration: none;
+    background-color: #9B0808;
+    padding: 10px 20px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease, transform 0.15s ease;
+  }
+  .wj-cta-btn:hover {
+    background-color: #6B0505;
+    transform: translateY(-1px);
+  }
+
+  /* VIDEO + CTA ROW */
+  .wj-video-cta-row {
+    display: flex;
+    gap: 32px;
+    align-items: center;
+    margin-top: 40px;
+  }
+
   /* RESPONSIVE */
   @media (max-width: 600px) {
     .wj-pillars { grid-template-columns: 1fr; }
@@ -415,6 +455,8 @@ const styles = `
     .wj-jury-grid { grid-template-columns: 1fr 1fr; }
     .wj-header-meta { flex-direction: column; gap: 8px; }
     .wj-container { padding: 0 20px; }
+    .wj-video-cta-row { flex-direction: column; align-items: center; }
+    .wj-video-cta-row .wj-video-wrap { width: 100%; }
   }
 `;
 
@@ -440,14 +482,18 @@ export default function WriteupPage() {
 
         <div className="wj-container">
 
-          {/* ── GO TO JURY LINK ── */}
-          <div style={{ paddingTop: '40px' }}>
-            <a
-              href="/"
-              style={{ display: 'inline-block', fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase', color: '#ffffff', textDecoration: 'none', backgroundColor: '#9B0808', padding: '10px 20px', borderRadius: '6px' }}
-            >
-              ← Go to the jury
-            </a>
+          {/* ── VIDEO + CTA ── */}
+          <div className="wj-video-cta-row">
+            <div style={{ flexShrink: 0 }}>
+              <a href="/" className="wj-cta-btn">
+                ← Go to the jury
+              </a>
+            </div>
+            <div className="wj-video-wrap" style={{ flex: 1, margin: 0 }}>
+              <video autoPlay muted loop playsInline>
+                <source src="/cassete%20jury.mp4" type="video/mp4" />
+              </video>
+            </div>
           </div>
 
           {/* ── 01 CONCEPT ── */}

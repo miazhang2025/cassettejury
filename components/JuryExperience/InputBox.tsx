@@ -17,6 +17,9 @@ export const InputBox: React.FC<InputBoxProps> = ({ onSubmit, isLoading, style, 
   const [question, setQuestion] = useState('');
   const [charCount, setCharCount] = useState(0);
   const [submittedQuestion, setSubmittedQuestion] = useState<string | null>(null);
+  const isMobile =
+    typeof window !== 'undefined' &&
+    (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0));
 
   // Use external submitted question if provided, otherwise use local state
   const currentSubmittedQuestion = externalSubmittedQuestion !== undefined ? externalSubmittedQuestion : submittedQuestion;
@@ -55,7 +58,7 @@ export const InputBox: React.FC<InputBoxProps> = ({ onSubmit, isLoading, style, 
       style={{
         backgroundColor: 'rgba(255, 255, 255, 0)',
         borderColor: '#cccccc00',
-        top: 'calc(30px + 1rem)',
+        top: isMobile ? 'calc(80px + 1rem)' : 'calc(30px + 1rem)',
         zIndex: 30,
         pointerEvents: 'auto',
         ...style,
@@ -110,7 +113,7 @@ export const InputBox: React.FC<InputBoxProps> = ({ onSubmit, isLoading, style, 
                 color: '#ffffff',
                 fontFamily: "'IBM Plex Mono', monospace",
                 margin: 0,
-                marginLeft: '-20px',
+                marginLeft: '20px',
                 fontSize: '1rem',
                 lineHeight: '1.5',
               }}

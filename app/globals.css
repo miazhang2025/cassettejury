@@ -41,3 +41,11 @@ h1, h2, h3, h4, h5, h6 {
 p, label, span, button, input, textarea, div {
   font-family: 'IBM Plex Mono', monospace;
 }
+
+/* iOS Safari: 100vh includes the address bar height, clipping the bottom of the layout.
+   100dvh (dynamic viewport height) shrinks when the toolbar is visible.
+   The 100vh line is a fallback for Safari < 15.4 which doesn't support dvh. */
+.full-dvh {
+  height: 100vh;
+  height: 100dvh;
+}
