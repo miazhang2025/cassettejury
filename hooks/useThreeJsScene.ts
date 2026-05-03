@@ -167,32 +167,30 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     keyLight.castShadow = true;
     scene.add(keyLight);
 
-    // Load stage model — use mobile-optimised asset on small screens
-    const gltfLoader = new GLTFLoader();
-    const stagePath = isMobile ? '/stage-mobile.glb' : '/stage.glb';
-    gltfLoader.load(stagePath, (gltf) => {
-      const stage = gltf.scene;
-      
-      // Rotate -90 degrees on Y axis and scale to 5
-      stage.rotation.y = -Math.PI / 2;
-      stage.scale.set(5, 5, 5);
-      stage.position.y = -0.7;  // Move stage lower
-      
-      // Preserve textures - only add shadow properties and smooth shading
-      stage.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-          // Compute normals for smooth shading
-          if (child.geometry) {
-            child.geometry.computeVertexNormals();
+    // Load stage model — skip on iOS Safari to avoid memory pressure
+    const isSafariIOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) && !/CriOS/.test(navigator.userAgent);
+    if (!isSafariIOS) {
+      const gltfLoader = new GLTFLoader();
+      const stagePath = isMobile ? '/stage-mobile.glb' : '/stage.glb';
+      gltfLoader.load(stagePath, (gltf) => {
+        const stage = gltf.scene;
+        stage.rotation.y = -Math.PI / 2;
+        stage.scale.set(5, 5, 5);
+        stage.position.y = -0.7;
+        stage.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            if (child.geometry) {
+              child.geometry.computeVertexNormals();
+            }
           }
-        }
+        });
+        stageRef.current = stage;
+        scene.add(stage);
       });
-      
-      stageRef.current = stage;
-      scene.add(stage);
-    });
+    }
 
     // Physics simulator
     const physics = new PhysicsSimulator();
@@ -752,14 +750,39 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       return;
     }
 
-    if (!gltfLoaderRef.current) {
-      gltfLoaderRef.current = new GLTFLoader();
-    }
-
     const juryMember = juries.find((j) => j.id === id);
     if (!juryMember) {
       console.warn(`Jury member with id ${id} not found`);
       return;
+    }
+
+    // iOS Safari (non-Chrome) OOMs loading multiple GLBs — use colored spheres instead
+    const isSafariIOS =
+      typeof window !== 'undefined' &&
+      /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+      !/CriOS/.test(navigator.userAgent);
+
+    if (isSafariIOS) {
+      const blob = new BlobGeometry(color, position, 0.8);
+      if (blob.mesh) {
+        // Apply jury color so blobs are visually distinct
+        blob.mesh.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            (child.material as THREE.MeshToonMaterial).color.set(color);
+          }
+        });
+        sceneRef.current.add(blob.mesh);
+        blobsRef.current.set(id, blob);
+        physicsRef.current.addBlob(blob);
+        originalBlobPositionsRef.current.set(blob, position.clone());
+        blobBasePositionsRef.current.set(blob, position.clone());
+        blobToJuryRef.current.set(blob, juryMember);
+      }
+      return;
+    }
+
+    if (!gltfLoaderRef.current) {
+      gltfLoaderRef.current = new GLTFLoader();
     }
 
     const loader = gltfLoaderRef.current;
