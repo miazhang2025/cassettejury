@@ -783,6 +783,15 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       const loader = gltfLoaderRef.current;
       const modelPath = `/jury/${id}.glb`;
 
+      const advanceQueue = () => {
+        if (isSafariIOS) {
+          setTimeout(() => {
+            const next = loadQueueRef.current.shift();
+            if (next) { next(); } else { loadQueueActiveRef.current = false; }
+          }, 600);
+        }
+      };
+
       const placeBlob = (model: THREE.Object3D) => {
         const blob = new BlobGeometry(color, position, model);
         if (blob.mesh && sceneRef.current && physicsRef.current) {
@@ -793,17 +802,12 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
           blobBasePositionsRef.current.set(blob, position.clone());
           blobToJuryRef.current.set(blob, juryMember);
         }
-        // Kick off next item in queue
-        if (isSafariIOS) {
-          setTimeout(() => {
-            const next = loadQueueRef.current.shift();
-            if (next) { next(); } else { loadQueueActiveRef.current = false; }
-          }, 250);
-        }
+        advanceQueue();
       };
 
-      // Check cache first
-      if (modelCacheRef.current.has(modelPath)) {
+      // On iOS Safari: skip the cache entirely so the parsed GLB data can be GC'd
+      // after placement. Caching keeps TWO full copies in memory (original + clone).
+      if (!isSafariIOS && modelCacheRef.current.has(modelPath)) {
         const cloned = modelCacheRef.current.get(modelPath)!.clone();
         placeBlob(cloned);
         return;
@@ -812,16 +816,20 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       loader.load(
         modelPath,
         (gltf) => {
-          modelCacheRef.current.set(modelPath, gltf.scene);
-          if (gltf.animations?.length) {
-            animationCacheRef.current.set(modelPath, gltf.animations);
+          if (isSafariIOS) {
+            // Use scene directly (no clone) and don't cache — lets GC free parsed data
+            placeBlob(gltf.scene);
+          } else {
+            modelCacheRef.current.set(modelPath, gltf.scene);
+            if (gltf.animations?.length) {
+              animationCacheRef.current.set(modelPath, gltf.animations);
+            }
+            placeBlob(gltf.scene.clone());
           }
-          placeBlob(gltf.scene.clone());
         },
         undefined,
         (error) => {
           console.error(`Failed to load model for ${id}:`, error);
-          // Fallback sphere on load error
           const blob = new BlobGeometry(color, position, 0.8);
           if (blob.mesh && sceneRef.current && physicsRef.current) {
             sceneRef.current.add(blob.mesh);
@@ -831,12 +839,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
             blobBasePositionsRef.current.set(blob, position.clone());
             blobToJuryRef.current.set(blob, juryMember);
           }
-          if (isSafariIOS) {
-            setTimeout(() => {
-              const next = loadQueueRef.current.shift();
-              if (next) { next(); } else { loadQueueActiveRef.current = false; }
-            }, 250);
-          }
+          advanceQueue();
         }
       );
     };
