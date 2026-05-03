@@ -126,6 +126,17 @@ export class BlobGeometry {
   setHighlight(highlighted: boolean, originalColor: string) {
     if (!this.mesh) return;
 
+    // Handle THREE.Sprite
+    if ((this.mesh as any).isSprite) {
+      const mat = (this.mesh as any).material;
+      if (highlighted) {
+        mat.color.setHex(0xffdddd);
+      } else {
+        mat.color.setHex(0xffffff);
+      }
+      return;
+    }
+
     this.mesh.traverse((child) => {
       if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
         if (highlighted) {

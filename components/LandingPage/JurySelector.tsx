@@ -20,12 +20,7 @@ export const JurySelector: React.FC<JurySelectorProps> = ({
     new Set()
   );
 
-  const isMobile =
-    typeof window !== 'undefined' &&
-    (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0));
-  const targetCount = isMobile
-    ? APP_CONSTANTS.MOBILE_SELECTED_JURIES_COUNT
-    : APP_CONSTANTS.SELECTED_JURIES_COUNT;
+  const targetCount = APP_CONSTANTS.SELECTED_JURIES_COUNT;
 
   const handleSelectJury = useCallback(
     (jury: JuryMember) => {

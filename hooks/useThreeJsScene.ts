@@ -36,6 +36,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
   const stageRef = useRef<THREE.Group | null>(null);
   const blobBasePositionsRef = useRef<Map<BlobGeometry, THREE.Vector3>>(new Map());
   // Queue for staggered GLB loading on memory-constrained devices (iOS Safari)
+  // (kept for desktop cache path — not used on Safari iOS which uses sprites)
   const loadQueueRef = useRef<Array<() => void>>([]);
   const loadQueueActiveRef = useRef(false);
 
@@ -769,12 +770,52 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       return;
     }
 
-    // iOS Safari (non-Chrome) OOMs when loading all GLBs simultaneously.
-    // Stagger loads 250ms apart so the JS engine can GC between each GPU upload.
+    // iOS Safari (non-Chrome): use a PNG sprite instead of GLB.
+    // THREE.Sprite auto-billboards to the camera, uses SpriteMaterial (not Mesh),
+    // so BlobGeometry.traverse skips material override — zero GLB memory cost.
     const isSafariIOS =
       typeof window !== 'undefined' &&
       /iPad|iPhone|iPod/.test(navigator.userAgent) &&
       !/CriOS/.test(navigator.userAgent);
+
+    if (isSafariIOS) {
+      const texLoader = new THREE.TextureLoader();
+      texLoader.load(
+        `/jury/${id}.png`,
+        (texture) => {
+          const mat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+          const sprite = new THREE.Sprite(mat);
+          sprite.scale.set(3.5, 3.5, 1);
+          sprite.userData.isSpritePanel = true;
+          const blob = new BlobGeometry(color, position, sprite);
+          if (blob.mesh && sceneRef.current && physicsRef.current) {
+            sceneRef.current.add(blob.mesh);
+            blobsRef.current.set(id, blob);
+            physicsRef.current.addBlob(blob);
+            originalBlobPositionsRef.current.set(blob, position.clone());
+            blobBasePositionsRef.current.set(blob, position.clone());
+            blobToJuryRef.current.set(blob, juryMember);
+          }
+        },
+        undefined,
+        () => {
+          // PNG failed — colored sprite fallback
+          const mat = new THREE.SpriteMaterial({ color });
+          const sprite = new THREE.Sprite(mat);
+          sprite.scale.set(3.5, 3.5, 1);
+          const blob = new BlobGeometry(color, position, sprite);
+          if (blob.mesh && sceneRef.current && physicsRef.current) {
+            sceneRef.current.add(blob.mesh);
+            blobsRef.current.set(id, blob);
+            physicsRef.current.addBlob(blob);
+            originalBlobPositionsRef.current.set(blob, position.clone());
+            blobBasePositionsRef.current.set(blob, position.clone());
+            blobToJuryRef.current.set(blob, juryMember);
+          }
+        }
+      );
+      return;
+    }
 
     const doLoad = () => {
       if (!gltfLoaderRef.current) {

@@ -20,12 +20,7 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
   const { settings, apiKey: contextApiKey } = useApp();
   // TEMPORARY: when server env key is active, treat as pre-filled
   const usingEnvKey = contextApiKey === '__env__';
-  const isMobile =
-    typeof window !== 'undefined' &&
-    (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0));
-  const targetCount = isMobile
-    ? APP_CONSTANTS.MOBILE_SELECTED_JURIES_COUNT
-    : APP_CONSTANTS.SELECTED_JURIES_COUNT;
+  const targetCount = APP_CONSTANTS.SELECTED_JURIES_COUNT;
   const [apiKey, setApiKey] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);

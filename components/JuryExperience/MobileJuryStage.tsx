@@ -36,8 +36,8 @@ export const MobileJuryStage: React.FC<MobileJuryStageProps> = ({
       return;
     }
 
-    // Add blobs in fixed 3-2-2 rows for 7 mobile jurors
-    const rowSizes = [3, 2, 2];
+    // Add blobs in fixed 3-3-3 rows for 9 jurors
+    const rowSizes = [3, 3, 3];
     const rowPositions = [0.5, 0.0, -0.5]; // Y: top, middle, bottom
     const rowZOffsets = [0, 0.9, 1.8];
 
