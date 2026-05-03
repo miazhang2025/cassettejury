@@ -2,6 +2,7 @@ export const APP_CONSTANTS = {
   // Jury selection
   MAX_JURIES: 16,
   SELECTED_JURIES_COUNT: 9,
+  MOBILE_SELECTED_JURIES_COUNT: 7,
 
   // API
   API_KEY_SESSION_KEY: 'anthropic_api_key',

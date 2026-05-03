@@ -20,6 +20,13 @@ export const JurySelector: React.FC<JurySelectorProps> = ({
     new Set()
   );
 
+  const isMobile =
+    typeof window !== 'undefined' &&
+    (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0));
+  const targetCount = isMobile
+    ? APP_CONSTANTS.MOBILE_SELECTED_JURIES_COUNT
+    : APP_CONSTANTS.SELECTED_JURIES_COUNT;
+
   const handleSelectJury = useCallback(
     (jury: JuryMember) => {
       const newSelected = new Set(selectedIds);
@@ -27,7 +34,7 @@ export const JurySelector: React.FC<JurySelectorProps> = ({
       if (newSelected.has(jury.id)) {
         // Deselect
         newSelected.delete(jury.id);
-      } else if (newSelected.size < APP_CONSTANTS.SELECTED_JURIES_COUNT) {
+      } else if (newSelected.size < targetCount) {
         // Select if not at max
         newSelected.add(jury.id);
       }
@@ -37,10 +44,10 @@ export const JurySelector: React.FC<JurySelectorProps> = ({
       const selectedJuries = allJuries.filter((j) => newSelected.has(j.id));
       onSelectionChange(selectedJuries);
     },
-    [selectedIds, allJuries, onSelectionChange]
+    [selectedIds, allJuries, onSelectionChange, targetCount]
   );
 
-  const isMaxSelected = selectedIds.size >= APP_CONSTANTS.SELECTED_JURIES_COUNT;
+  const isMaxSelected = selectedIds.size >= targetCount;
 
   return (
     <div
@@ -49,7 +56,7 @@ export const JurySelector: React.FC<JurySelectorProps> = ({
     >
       {/* Counter */}
       <div className="mb-2 text-xs md:text-sm font-medium text-center" style={{ color: '#4a4a4a' }}>
-        Select {APP_CONSTANTS.SELECTED_JURIES_COUNT} of {APP_CONSTANTS.MAX_JURIES} jurors
+        Select {targetCount} of {APP_CONSTANTS.MAX_JURIES} jurors
       </div>
 
       {/* Grid of circular thumbnails - responsive: 2 cols mobile, 3 tablet, 6 desktop */}
@@ -69,10 +76,10 @@ export const JurySelector: React.FC<JurySelectorProps> = ({
       <div
         className="mt-2 text-center text-xs md:text-sm font-medium"
         style={{
-          color: selectedIds.size === APP_CONSTANTS.SELECTED_JURIES_COUNT ? '#9B0808' : '#4a4a4a',
+          color: selectedIds.size === targetCount ? '#9B0808' : '#4a4a4a',
         }}
       >
-        {selectedIds.size}/{APP_CONSTANTS.SELECTED_JURIES_COUNT} selected
+        {selectedIds.size}/{targetCount} selected
       </div>
     </div>
   );

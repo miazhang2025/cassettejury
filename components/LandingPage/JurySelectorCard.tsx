@@ -290,7 +290,12 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
       >
         <canvas ref={canvasRef} className="w-full h-full" style={{ display: skipWebGL ? 'none' : 'block' }} />
         {skipWebGL && (
-          <div className="w-full h-full" style={{ backgroundColor: jury.color }} />
+          <img
+            src={`/jury/${jury.id}.png`}
+            alt={jury.name}
+            className="w-full h-full object-cover"
+            draggable={false}
+          />
         )}
       </div>
 

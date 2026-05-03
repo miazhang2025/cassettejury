@@ -36,20 +36,15 @@ export const MobileJuryStage: React.FC<MobileJuryStageProps> = ({
       return;
     }
 
-    // Add blobs to scene in three rows
-    const blobsPerRow = Math.ceil(selectedJuries.length / 3);
-    const rowPositions = [0.5, 0.0, -0.5]; // Y positions for top, middle, bottom rows
-    const rowZOffsets = [0, 0.9, 1.8]; // Depth variation per row
+    // Add blobs in fixed 3-2-2 rows for 7 mobile jurors
+    const rowSizes = [3, 2, 2];
+    const rowPositions = [0.5, 0.0, -0.5]; // Y: top, middle, bottom
+    const rowZOffsets = [0, 0.9, 1.8];
 
     let index = 0;
-    for (let row = 0; row < 3; row++) {
-      const startIdx = row * blobsPerRow;
-      const endIdx = Math.min(startIdx + blobsPerRow, selectedJuries.length);
-      const rowSize = endIdx - startIdx;
-
-      if (rowSize <= 0) break;
-
-      const spacing = 5.3 / (rowSize + 1); // Distribute evenly with padding
+    for (let row = 0; row < rowSizes.length; row++) {
+      const rowSize = rowSizes[row];
+      const spacing = 5.3 / (rowSize + 1);
 
       for (let col = 0; col < rowSize; col++) {
         if (index >= selectedJuries.length) break;

@@ -20,6 +20,12 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
   const { settings, apiKey: contextApiKey } = useApp();
   // TEMPORARY: when server env key is active, treat as pre-filled
   const usingEnvKey = contextApiKey === '__env__';
+  const isMobile =
+    typeof window !== 'undefined' &&
+    (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0));
+  const targetCount = isMobile
+    ? APP_CONSTANTS.MOBILE_SELECTED_JURIES_COUNT
+    : APP_CONSTANTS.SELECTED_JURIES_COUNT;
   const [apiKey, setApiKey] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -31,8 +37,8 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
   const handleSubmit = () => {
     // TEMPORARY: skip all validation when using the server env key
     if (usingEnvKey) {
-      if (selectedCount !== APP_CONSTANTS.SELECTED_JURIES_COUNT) {
-        setError(`Please select exactly ${APP_CONSTANTS.SELECTED_JURIES_COUNT} jurors`);
+      if (selectedCount !== targetCount) {
+        setError(`Please select exactly ${targetCount} jurors`);
         return;
       }
       if (settings.soundEnabled) {
@@ -53,8 +59,8 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
       return;
     }
 
-    if (selectedCount !== APP_CONSTANTS.SELECTED_JURIES_COUNT) {
-      setError(`Please select exactly ${APP_CONSTANTS.SELECTED_JURIES_COUNT} jurors`);
+    if (selectedCount !== targetCount) {
+      setError(`Please select exactly ${targetCount} jurors`);
       return;
     }
 
@@ -71,13 +77,13 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && isValid && selectedCount === APP_CONSTANTS.SELECTED_JURIES_COUNT) {
+    if (e.key === 'Enter' && isValid && selectedCount === targetCount) {
       handleSubmit();
     }
   };
 
   const canProceed =
-    (usingEnvKey || isValid) && selectedCount === APP_CONSTANTS.SELECTED_JURIES_COUNT && !isLoading;
+    (usingEnvKey || isValid) && selectedCount === targetCount && !isLoading;
 
   return (
     <div
@@ -172,7 +178,7 @@ export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
         </p>
 
         <div className="text-xs text-center" style={{ color: '#4a4a4a' }}>
-          {selectedCount}/{APP_CONSTANTS.SELECTED_JURIES_COUNT} jurors selected
+          {selectedCount}/{targetCount} jurors selected
         </div>
       </div>
     </div>

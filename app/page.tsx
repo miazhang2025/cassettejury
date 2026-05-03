@@ -40,7 +40,7 @@ export default function Home() {
         />
         <ApiKeyInput
           onApiKeySubmit={handleApiKeySubmit}
-          isValid={selectedJuries.length === APP_CONSTANTS.SELECTED_JURIES_COUNT}
+          isValid={selectedJuries.length === (typeof window !== 'undefined' && (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0)) ? APP_CONSTANTS.MOBILE_SELECTED_JURIES_COUNT : APP_CONSTANTS.SELECTED_JURIES_COUNT)}
           selectedCount={selectedJuries.length}
         />
       </LandingContainer>
