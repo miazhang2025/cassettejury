@@ -34,6 +34,7 @@ function ensureRenderer(): THREE.WebGLRenderer {
       antialias: true,
       alpha: false,
       powerPreference: 'low-power',
+      preserveDrawingBuffer: true,
     });
     sharedRenderer.setSize(RENDER_SIZE, RENDER_SIZE, false);
     sharedRenderer.setPixelRatio(1);

@@ -1,6 +1,7 @@
+import type { Metadata } from 'next';
 import { juries } from '@/config/juries';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Cassette Jury — Project Write-up',
 };
 
