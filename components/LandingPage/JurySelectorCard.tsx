@@ -7,6 +7,7 @@ import { JuryMember } from '@/config/juries';
 import { playSound } from '@/utils/audio';
 import { AUDIO_FILES, VOLUME_DEFAULTS } from '@/config/sounds';
 import { useApp } from '@/context/AppContext';
+import { registerCard, unregisterCard } from '@/utils/sharedThreeRenderer';
 
 interface JurySelectorCardProps {
   jury: JuryMember;
@@ -24,52 +25,35 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
   const { settings } = useApp();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const meshRef = useRef<THREE.Mesh | null>(null);
   const [showCard, setShowCard] = useState(false);
   const [cardPosition, setCardPosition] = useState({ x: 0, y: 0, transform: 'translateX(-80%)', left: 0 });
+  const isMobile =
+    typeof window !== 'undefined' &&
+    (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0));
 
   useEffect(() => {
-    if (!canvasRef.current) return;
-
-    // Clean up previous renderer if it exists
-    if (rendererRef.current) {
-      rendererRef.current.dispose();
-      rendererRef.current = null;
-    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
     let cleanupFn: (() => void) | null = null;
+    let cancelled = false;
 
     // Small timeout to ensure canvas is laid out by browser
     const timeoutId = setTimeout(() => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
+      if (cancelled) return;
 
-      // Skip if renderer already exists (shouldn't happen, but safety check)
-      if (rendererRef.current) {
-        return;
-      }
+      // Set 2D canvas pixel dimensions (drawImage target)
+      const size = Math.max(canvas.clientWidth || 140, 1);
+      canvas.width = size;
+      canvas.height = size;
 
-      let width = canvas.clientWidth;
-      let height = canvas.clientHeight;
-
-      // Fallback to minimum size if canvas hasn't been laid out yet
-      if (width === 0 || height === 0) {
-        width = 120;
-        height = 120;
-      }
-
-      // Scene setup
+      // Per-card scene and camera — all share ONE WebGLRenderer via sharedThreeRenderer
       const scene = new THREE.Scene();
       scene.background = new THREE.Color('#E5E5E1');
 
       const camera = new THREE.OrthographicCamera(-0.8, 0.8, 0.8, -0.8, 0.1, 100);
       camera.position.z = 3;
-
-      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'low-power' });
-      renderer.setSize(width, height);
-      renderer.setPixelRatio(window.devicePixelRatio);
-      rendererRef.current = renderer;
 
       // Lighting
       const ambientLight = new THREE.AmbientLight('#ffffff', 1.5);
@@ -89,62 +73,41 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
           `/jury/${jury.id}.glb`,
           (gltf) => {
             const model = gltf.scene;
-            
-            // Rotate -90 degrees on Y axis
             model.rotation.y = -Math.PI / 2;
-            
-            // Apply toon shading material and make sure model is visible
             model.traverse((child) => {
               if (child instanceof THREE.Mesh) {
-                // Extract the original texture map if it exists
                 let originalMap: THREE.Texture | null = null;
                 if (child.material instanceof THREE.Material && 'map' in child.material) {
                   originalMap = (child.material as any).map;
                 }
-
                 const toonMaterial = new THREE.MeshToonMaterial({
                   color: '#ffffff',
                   map: originalMap,
-                  emissive: '#00000',
+                  emissive: '#000000',
                 });
                 child.material = toonMaterial;
                 child.castShadow = true;
                 child.receiveShadow = true;
-                // Compute normals for smooth shading
                 if (child.geometry) {
                   child.geometry.computeVertexNormals();
                 }
               }
             });
-            
             scene.add(model);
             meshRef.current = model as any;
-            console.debug(`Successfully loaded model for ${jury.id}`);
           },
           undefined,
-          (error) => {
+          () => {
             modelLoadAttempts++;
-            console.warn(`Failed to load model for ${jury.id} (attempt ${modelLoadAttempts}):`, error);
-            
             if (modelLoadAttempts < maxAttempts) {
-              // Retry once
-              setTimeout(() => {
-                loadModel();
-              }, 500);
+              setTimeout(() => loadModel(), 500);
             } else {
-              // Fallback: create a sphere if model fails to load
               const geometry = new THREE.IcosahedronGeometry(0.8, 5);
-              // Compute vertex normals for smooth shading
               geometry.computeVertexNormals();
-              const material = new THREE.MeshToonMaterial({
-                color: '#ffffff',
-                emissive: '#000000',
-              });
-
+              const material = new THREE.MeshToonMaterial({ color: '#ffffff', emissive: '#000000' });
               const mesh = new THREE.Mesh(geometry, material);
               scene.add(mesh);
               meshRef.current = mesh;
-              console.debug(`Using fallback sphere for ${jury.id}`);
             }
           }
         );
@@ -152,69 +115,48 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
 
       loadModel();
 
-      // Animation loop
-      let animationId: number;
-      const animate = () => {
-        animationId = requestAnimationFrame(animate);
+      // Update canvas pixel dimensions on resize
+      const handleResize = () => {
+        const newSize = Math.max(canvas.clientWidth || 140, 1);
+        canvas.width = newSize;
+        canvas.height = newSize;
+      };
+      window.addEventListener('resize', handleResize);
 
+      // Register with the single shared WebGLRenderer
+      registerCard(jury.id, scene, camera, canvas, () => {
         if (meshRef.current) {
           meshRef.current.rotation.y += 0.01;
         }
+      });
 
-        renderer.render(scene, camera);
-      };
-
-      animate();
-
-      // Handle resize
-      const handleResize = () => {
-        const newWidth = canvas.clientWidth;
-        const newHeight = canvas.clientHeight;
-        renderer.setSize(newWidth, newHeight);
-      };
-
-      window.addEventListener('resize', handleResize);
-
-      // Create cleanup function
       cleanupFn = () => {
         window.removeEventListener('resize', handleResize);
-        cancelAnimationFrame(animationId);
-        
-        // Stop animation and clear mesh reference
+        unregisterCard(jury.id);
         meshRef.current = null;
-        
-        // Properly dispose Three.js resources
         scene.traverse((child) => {
           if (child instanceof THREE.Mesh) {
-            if (child.geometry) {
-              child.geometry.dispose();
-            }
-            if (child.material) {
-              if (Array.isArray(child.material)) {
-                child.material.forEach((m) => m.dispose());
-              } else {
-                child.material.dispose();
-              }
+            child.geometry?.dispose();
+            if (Array.isArray(child.material)) {
+              child.material.forEach((m) => m.dispose());
+            } else {
+              (child.material as THREE.Material)?.dispose();
             }
           }
         });
-
-        // Dispose renderer and release WebGL context
-        if (rendererRef.current) {
-          rendererRef.current.dispose();
-          rendererRef.current = null;
-        }
       };
-    }, 50); // 50ms delay to ensure layout
+    }, 50);
 
     return () => {
+      cancelled = true;
       clearTimeout(timeoutId);
-      // Call cleanup if it was set up
       if (cleanupFn) {
         cleanupFn();
+      } else {
+        unregisterCard(jury.id);
       }
     };
-  }, [jury.color, jury.id]);
+  }, [jury.id]);
 
   const handleClick = () => {
     if (!maxSelected || isSelected) {
@@ -278,10 +220,6 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
   const handleMouseLeave = () => {
     setShowCard(false);
   };
-
-  const isMobile =
-    typeof window !== 'undefined' &&
-    (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0));
 
   const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchMovedRef = React.useRef(false);
