@@ -32,7 +32,15 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
     typeof window !== 'undefined' &&
     (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0));
 
+  // Safari on iOS and in-app browsers (Instagram, LinkedIn) use WKWebView which has
+  // strict memory limits — Three.js + 16 GLBs OOMs them. Chrome on iOS works fine.
+  const skipWebGL =
+    typeof window !== 'undefined' &&
+    /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+    !/CriOS/.test(navigator.userAgent); // CriOS = Chrome on iOS
+
   useEffect(() => {
+    if (skipWebGL) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -280,7 +288,10 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
         onMouseLeave={isMobile ? undefined : handleMouseLeave}
         onTouchStart={isMobile ? handleTouchStart : undefined}
       >
-        <canvas ref={canvasRef} className="w-full h-full" />
+        <canvas ref={canvasRef} className="w-full h-full" style={{ display: skipWebGL ? 'none' : 'block' }} />
+        {skipWebGL && (
+          <div className="w-full h-full" style={{ backgroundColor: jury.color }} />
+        )}
       </div>
 
       {/* Hover card - responsive sizing for mobile */}
