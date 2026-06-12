@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const juriesPath = path.join(process.cwd(), 'config', 'juries.ts');
 
     // Read current juries.ts
-    let juriesContent = fs.readFileSync(juriesPath, 'utf-8');
+    const juriesContent = fs.readFileSync(juriesPath, 'utf-8');
 
     // Create the new character object as TypeScript code
     const newCharacterCode = `  {

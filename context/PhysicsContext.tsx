@@ -7,7 +7,7 @@ import { APP_CONSTANTS } from '@/config/constants';
 const PhysicsContext = createContext<PhysicsContextType | undefined>(undefined);
 
 export const PhysicsProvider = ({ children }: { children: ReactNode }) => {
-  const [world] = useState<any>(null);
+  const [world] = useState<unknown>(null);
   const [blobs, setBlobs] = useState<BlobInstance[]>([]);
   const [isReady] = useState(false);
 

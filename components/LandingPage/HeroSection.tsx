@@ -11,9 +11,17 @@ export const HeroSection: React.FC = () => {
 
       <p
         className="text-left max-w-200 mb-2"
-        style={{ color: '#4a4a4a', fontSize: '11px' }}
+        style={{ color: '#4a4a4a', fontSize: '13px', lineHeight: 1.6 }}
       >
-Meet your pocket jury. Cassette Jury is a panel of several AI characters — each with their own job, taste, and agenda — ready to weigh in when your team hits a creative deadlock. Submit your question, watch them deliberate, get a verdict. No prototype, no focus group, no budget required. Hover or hold to see details.     </p>
+        Meet your pocket jury. Cassette Jury is a panel of AI characters — each with their own job, taste, and agenda — ready to weigh in when your team hits a creative deadlock. Submit your question, watch them deliberate live, get a verdict. No prototype, no focus group, no budget required. Hover or hold a juror to meet them.{' '}
+        <a
+          href="/writeup"
+          className="hover:underline"
+          style={{ color: '#9B0808', textDecoration: 'underline' }}
+        >
+          About this project →
+        </a>
+      </p>
 
       {/* <div className="flex gap-4 md:gap-6 text-xs md:text-sm text-center justify-center flex-wrap" style={{ color: '#4a4a4a' }}>
         <div>✓ Choose 9 jurors</div>

@@ -16,6 +16,7 @@ interface JuryStageProps {
   showResults?: boolean;
   discussionResult?: DiscussionResult | null;
   isProcessing?: boolean;
+  onAssetProgress?: (progress: number, done: boolean) => void;
 }
 
 export const JuryStage: React.FC<JuryStageProps> = ({
@@ -24,11 +25,17 @@ export const JuryStage: React.FC<JuryStageProps> = ({
   showResults = false,
   discussionResult = null,
   isProcessing = false,
+  onAssetProgress,
 }) => {
   const { selectedJuries, settings } = useApp();
   const sceneHook = useThreeJsScene('jury-canvas', showResults, discussionResult);
   const blobsInitializedRef = useRef(false);
   const previousHoveredBlobRef = useRef<string | null>(null);
+
+  // Report real asset loading progress up to the container
+  useEffect(() => {
+    onAssetProgress?.(sceneHook.loadProgress, sceneHook.assetsLoaded);
+  }, [sceneHook.loadProgress, sceneHook.assetsLoaded, onAssetProgress]);
 
   // Initialize blobs on mount
   useEffect(() => {

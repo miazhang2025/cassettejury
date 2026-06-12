@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AIRequest, AIResponse } from '@/types/ai';
-import { juries, getJuriesByIds } from '@/config/juries';
+import Anthropic from '@anthropic-ai/sdk';
+import { AIRequest } from '@/types/ai';
+import { getJuriesByIds } from '@/config/juries';
 import { buildJurySystemPrompt, buildUserPrompt } from '@/config/prompts';
 
+export const runtime = 'nodejs';
+
+// Streams the jury deliberation back to the client as NDJSON
+// (one JSON object per line: a "sides" line, one "juror" line per member,
+// and a final "verdict" line — see config/prompts.ts for the protocol).
 export async function POST(request: NextRequest) {
   try {
     const body: AIRequest = await request.json();
-    console.log('API /jury received request body:', body);
-    
     const { question, juryIds, apiKey: rawApiKey, allowUndecided = false } = body;
 
-    // --- TEMPORARY: resolve server-side env key ---
-    // When NEXT_PUBLIC_USE_ENV_KEY=true, the client sends '__env__' as a sentinel.
-    // We swap it here so the real key never leaves the server.
-    // To remove this feature: set NEXT_PUBLIC_USE_ENV_KEY=false in .env.local.
+    // The client sends '__env__' as a sentinel for the hosted key;
+    // the real key is resolved here so it never leaves the server.
     let apiKey = rawApiKey;
     if (rawApiKey === '__env__') {
       const envKey = process.env.ANTHROPIC_API_KEY;
@@ -25,127 +27,98 @@ export async function POST(request: NextRequest) {
       }
       apiKey = envKey;
     }
-    // --- END TEMPORARY ---
 
-    // Validate required fields
-    console.log('Validation check:');
-    console.log('- question present:', !!question, 'value:', question);
-    console.log('- juryIds present:', !!juryIds, 'isArray:', Array.isArray(juryIds), 'length:', juryIds?.length);
-    console.log('- apiKey present:', !!apiKey);
-    
-    if (!question) {
-      console.log('VALIDATION FAILED: Missing question');
-      return NextResponse.json(
-        { error: 'Missing required field: question' },
-        { status: 400 }
-      );
+    if (!question || typeof question !== 'string') {
+      return NextResponse.json({ error: 'Missing required field: question' }, { status: 400 });
     }
-    
     if (!juryIds || !Array.isArray(juryIds) || juryIds.length === 0) {
-      console.log('VALIDATION FAILED: Missing or empty juryIds');
       return NextResponse.json(
         { error: 'Missing required field: juryIds (must be non-empty array)' },
         { status: 400 }
       );
     }
-    
     if (!apiKey) {
-      console.log('VALIDATION FAILED: Missing apiKey');
-      return NextResponse.json(
-        { error: 'Missing required field: apiKey' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing required field: apiKey' }, { status: 400 });
     }
-
     if (!apiKey.startsWith('sk-ant-')) {
-      console.log('VALIDATION FAILED: Invalid API key format');
       return NextResponse.json(
         { error: 'Invalid API key format. Key should start with sk-ant-' },
         { status: 400 }
       );
     }
 
-    console.log('All validations passed. Processing request...');
-
-    // Get selected jury members
     const selectedJuries = getJuriesByIds(juryIds);
-
     if (selectedJuries.length === 0) {
-      return NextResponse.json(
-        { error: 'No valid jury members found' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'No valid jury members found' }, { status: 400 });
     }
 
-    // Build prompts with allowUndecided setting
-    const systemPrompt = buildJurySystemPrompt(selectedJuries, allowUndecided);
-    const userPrompt = buildUserPrompt(question, allowUndecided);
+    const client = new Anthropic({ apiKey });
 
-    // Call Anthropic Claude API
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-1-20250805',
-        max_tokens: 2000,
-        system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: userPrompt,
-          },
-        ],
-      }),
+    const stream = client.messages.stream({
+      model: 'claude-opus-4-8',
+      max_tokens: 16000,
+      thinking: { type: 'adaptive' },
+      system: buildJurySystemPrompt(selectedJuries, allowUndecided),
+      messages: [{ role: 'user', content: buildUserPrompt(question) }],
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Anthropic API error response:', response.status, errorText);
-      
-      let errorMessage = 'Failed to get response from Claude API';
-      
-      try {
-        const errorJson = JSON.parse(errorText);
-        if (errorJson.error?.message) {
-          errorMessage = errorJson.error.message;
+    const encoder = new TextEncoder();
+
+    const ndjson = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        // Buffer model text and forward only complete, valid JSON lines so the
+        // client never has to handle partial JSON.
+        let buffer = '';
+
+        const flushLines = (final: boolean) => {
+          const lines = buffer.split('\n');
+          buffer = final ? '' : lines.pop() ?? '';
+          for (const line of lines.concat(final && buffer ? [buffer] : [])) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            try {
+              JSON.parse(trimmed);
+              controller.enqueue(encoder.encode(trimmed + '\n'));
+            } catch {
+              // Skip non-JSON noise (e.g. stray prose) rather than break the stream.
+            }
+          }
+        };
+
+        try {
+          for await (const event of stream) {
+            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+              buffer += event.delta.text;
+              flushLines(false);
+            }
+          }
+          await stream.finalMessage();
+          flushLines(true);
+          controller.close();
+        } catch (err) {
+          const message =
+            err instanceof Anthropic.APIError
+              ? err.message
+              : 'Failed to get response from Claude API';
+          controller.enqueue(
+            encoder.encode(JSON.stringify({ type: 'error', error: message }) + '\n')
+          );
+          controller.close();
         }
-      } catch (e) {
-        // If it's not JSON, just use the text in details
-      }
-      
-      return NextResponse.json(
-        { 
-          error: errorMessage,
-          status: response.status,
-          details: errorText.length < 500 ? errorText : 'See server logs for full error'
-        },
-        { status: response.status }
-      );
-    }
+      },
+    });
 
-    const data = await response.json();
-
-    // Extract the JSON response from Claude
-    const content = data.content[0].text;
-
-    // Parse the JSON response
-    let parsedResponse: AIResponse;
-    try {
-      parsedResponse = JSON.parse(content);
-    } catch (e) {
-      console.error('Failed to parse Claude response as JSON:', content);
-      return NextResponse.json(
-        { error: 'Failed to parse Claude response', details: content },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(parsedResponse);
+    return new Response(ndjson, {
+      headers: {
+        'Content-Type': 'application/x-ndjson; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no',
+      },
+    });
   } catch (error) {
+    if (error instanceof Anthropic.APIError) {
+      return NextResponse.json({ error: error.message }, { status: error.status ?? 500 });
+    }
     console.error('Error in jury API:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: String(error) },

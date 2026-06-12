@@ -7,6 +7,9 @@ import { JuryMember } from '@/config/juries';
 import { playSound } from '@/utils/audio';
 import { AUDIO_FILES, VOLUME_DEFAULTS } from '@/config/sounds';
 import { useApp } from '@/context/AppContext';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { juryThumb } from '@/utils/assets';
+import { isLowMemoryWebView } from '@/utils/device';
 import { registerCard, unregisterCard } from '@/utils/sharedThreeRenderer';
 
 interface JurySelectorCardProps {
@@ -14,6 +17,30 @@ interface JurySelectorCardProps {
   isSelected: boolean;
   onSelect: (jury: JuryMember) => void;
   maxSelected?: boolean;
+}
+
+// Throttle GLB downloads so 16 cards don't fetch ~25MB at once.
+// The WebP thumb shows instantly; each live render fades in when its model lands.
+const MAX_CONCURRENT_LOADS = 4;
+let activeLoads = 0;
+const loadQueue: Array<() => void> = [];
+
+function enqueueModelLoad(start: () => void): void {
+  if (activeLoads < MAX_CONCURRENT_LOADS) {
+    activeLoads++;
+    start();
+  } else {
+    loadQueue.push(start);
+  }
+}
+
+function finishModelLoad(): void {
+  activeLoads = Math.max(0, activeLoads - 1);
+  const next = loadQueue.shift();
+  if (next) {
+    activeLoads++;
+    next();
+  }
 }
 
 export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
@@ -25,19 +52,16 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
   const { settings } = useApp();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const meshRef = useRef<THREE.Mesh | null>(null);
+  const meshRef = useRef<THREE.Object3D | null>(null);
   const [showCard, setShowCard] = useState(false);
+  const [modelReady, setModelReady] = useState(false);
   const [cardPosition, setCardPosition] = useState({ x: 0, y: 0, transform: 'translateX(-80%)', left: 0 });
-  const isMobile =
-    typeof window !== 'undefined' &&
-    (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0));
+  const isMobile = useIsMobile();
 
   // Safari on iOS and in-app browsers (Instagram, LinkedIn) use WKWebView which has
-  // strict memory limits — Three.js + 16 GLBs OOMs them. Chrome on iOS works fine.
-  const skipWebGL =
-    typeof window !== 'undefined' &&
-    /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-    !/CriOS/.test(navigator.userAgent); // CriOS = Chrome on iOS
+  // strict memory limits — Three.js + 16 GLBs OOMs them. Desktop, Android, and
+  // Chrome on iOS all get the live 3D renders.
+  const skipWebGL = isLowMemoryWebView();
 
   useEffect(() => {
     if (skipWebGL) return;
@@ -46,6 +70,8 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
 
     let cleanupFn: (() => void) | null = null;
     let cancelled = false;
+    let loadStarted = false;
+    let loadFinished = false;
 
     // Small timeout to ensure canvas is laid out by browser
     const timeoutId = setTimeout(() => {
@@ -71,22 +97,32 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
       keyLight.position.set(2, 2, 2);
       scene.add(keyLight);
 
-      // Load jury model
+      // Load jury model through the throttled queue
       const loader = new GLTFLoader();
       let modelLoadAttempts = 0;
       const maxAttempts = 2;
 
+      const markFinished = () => {
+        if (!loadFinished) {
+          loadFinished = true;
+          finishModelLoad();
+        }
+      };
+
       const loadModel = () => {
+        loadStarted = true;
         loader.load(
           `/jury/${jury.id}.glb`,
           (gltf) => {
+            markFinished();
+            if (cancelled) return;
             const model = gltf.scene;
             model.rotation.y = -Math.PI / 2;
             model.traverse((child) => {
               if (child instanceof THREE.Mesh) {
                 let originalMap: THREE.Texture | null = null;
                 if (child.material instanceof THREE.Material && 'map' in child.material) {
-                  originalMap = (child.material as any).map;
+                  originalMap = (child.material as THREE.MeshStandardMaterial).map;
                 }
                 const toonMaterial = new THREE.MeshToonMaterial({
                   color: '#ffffff',
@@ -94,34 +130,29 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
                   emissive: '#000000',
                 });
                 child.material = toonMaterial;
-                child.castShadow = true;
-                child.receiveShadow = true;
                 if (child.geometry) {
                   child.geometry.computeVertexNormals();
                 }
               }
             });
             scene.add(model);
-            meshRef.current = model as any;
+            meshRef.current = model;
+            setModelReady(true);
           },
           undefined,
           () => {
             modelLoadAttempts++;
-            if (modelLoadAttempts < maxAttempts) {
+            if (modelLoadAttempts < maxAttempts && !cancelled) {
               setTimeout(() => loadModel(), 500);
             } else {
-              const geometry = new THREE.IcosahedronGeometry(0.8, 5);
-              geometry.computeVertexNormals();
-              const material = new THREE.MeshToonMaterial({ color: '#ffffff', emissive: '#000000' });
-              const mesh = new THREE.Mesh(geometry, material);
-              scene.add(mesh);
-              meshRef.current = mesh;
+              // Keep the WebP portrait — better fallback than a blank icosahedron
+              markFinished();
             }
           }
         );
       };
 
-      loadModel();
+      enqueueModelLoad(loadModel);
 
       // Update canvas pixel dimensions on resize
       const handleResize = () => {
@@ -158,17 +189,21 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
     return () => {
       cancelled = true;
       clearTimeout(timeoutId);
+      // A queued-but-never-started load shouldn't hold a queue slot
+      if (loadStarted && !loadFinished) {
+        loadFinished = true;
+        finishModelLoad();
+      }
       if (cleanupFn) {
         cleanupFn();
       } else {
         unregisterCard(jury.id);
       }
     };
-  }, [jury.id]);
+  }, [jury.id, skipWebGL]);
 
   const handleClick = () => {
     if (!maxSelected || isSelected) {
-      // Play click sound
       if (settings.soundEnabled) {
         playSound(AUDIO_FILES.SFX.click, {
           volume: VOLUME_DEFAULTS.SFX,
@@ -179,7 +214,6 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
   };
 
   const handleMouseEnter = () => {
-    // Play hover sound
     if (settings.soundEnabled) {
       playSound(AUDIO_FILES.SFX.paper, {
         volume: VOLUME_DEFAULTS.SFX,
@@ -191,10 +225,9 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
       const blobCenterX = rect.left + rect.width / 2;
       const cardWidth = 320;
       const padding = 20;
-      
+
       // Check if we're near the left edge - use higher threshold to ensure card stays visible
       if (blobCenterX < 180) {
-        // Position from left edge
         setCardPosition({
           x: 0,
           y: rect.top,
@@ -204,7 +237,6 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
       }
       // Check if we're near the right edge
       else if (blobCenterX > window.innerWidth - 180) {
-        // Position from right edge
         setCardPosition({
           x: 0,
           y: rect.top,
@@ -229,8 +261,8 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
     setShowCard(false);
   };
 
-  const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const touchMovedRef = React.useRef(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchMovedRef = useRef(false);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
@@ -271,37 +303,64 @@ export const JurySelectorCard: React.FC<JurySelectorCardProps> = ({
 
   const borderColor = isSelected ? '#9B0808' : 'transparent';
   const borderWidth = isSelected ? 3 : 0;
+  const dimmed = maxSelected && !isSelected;
+  const showLiveRender = !skipWebGL;
 
   return (
     <div ref={containerRef} className="flex justify-center">
-      <div
-        className="rounded-full overflow-hidden cursor-pointer transition-all"
+      <button
+        type="button"
+        aria-pressed={isSelected}
+        aria-label={`${jury.name}, ${jury.profession}${isSelected ? ', selected' : ''}`}
+        disabled={dimmed}
+        className="relative rounded-full overflow-hidden cursor-pointer transition-all hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2"
         style={{
           width: 'clamp(100px, 25vw, 140px)',
           height: 'clamp(100px, 25vw, 140px)',
           border: `${borderWidth}px solid ${borderColor}`,
-          opacity: maxSelected && !isSelected ? 0.5 : 1,
-          pointerEvents: maxSelected && !isSelected ? 'none' : 'auto',
+          opacity: dimmed ? 0.5 : 1,
+          padding: 0,
+          backgroundColor: '#E5E5E1',
+          outlineColor: '#9B0808',
         }}
         onClick={handleClick}
         onMouseEnter={isMobile ? undefined : handleMouseEnter}
         onMouseLeave={isMobile ? undefined : handleMouseLeave}
+        onFocus={isMobile ? undefined : handleMouseEnter}
+        onBlur={isMobile ? undefined : handleMouseLeave}
         onTouchStart={isMobile ? handleTouchStart : undefined}
       >
-        <canvas ref={canvasRef} className="w-full h-full" style={{ display: skipWebGL ? 'none' : 'block' }} />
-        {skipWebGL && (
-          <img
-            src={`/jury/${jury.id}.png`}
-            alt={jury.name}
-            className="w-full h-full object-cover"
-            draggable={false}
+        {/* Instant WebP portrait — visible until the live render is ready */}
+        <img
+          src={juryThumb(jury.id)}
+          alt=""
+          width={512}
+          height={512}
+          loading="lazy"
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{
+            opacity: showLiveRender && modelReady ? 0 : 1,
+            transition: 'opacity 0.4s ease-out',
+          }}
+          draggable={false}
+        />
+        {/* Live rotating 3D render, fades in over the portrait */}
+        {showLiveRender && (
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 w-full h-full"
+            style={{
+              opacity: modelReady ? 1 : 0,
+              transition: 'opacity 0.4s ease-out',
+            }}
           />
         )}
-      </div>
+      </button>
 
       {/* Hover card - responsive sizing for mobile */}
       {showCard && (
         <div
+          role="tooltip"
           style={{
             position: 'fixed',
             left: `${cardPosition.left}px`,

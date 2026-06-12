@@ -14,18 +14,24 @@ export const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, style }) =>
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [newKey, setNewKey] = useState('');
 
-  const maskedKey = apiKey ? `${apiKey.slice(0, 10)}...${apiKey.slice(-10)}` : '';
+  const usingHostedKey = apiKey === '__env__';
+  const maskedKey = usingHostedKey
+    ? 'Hosted key (no setup needed)'
+    : apiKey
+      ? `Stored: ${apiKey.slice(0, 10)}...${apiKey.slice(-10)}`
+      : 'No API key stored';
 
   const handleUpdateKey = () => {
     if (newKey.trim()) {
-      setApiKey(newKey);
+      setApiKey(newKey.trim());
       setNewKey('');
       setShowKeyInput(false);
     }
   };
 
   const handleClearKey = () => {
-    setApiKey(null);
+    // Dropping a custom key falls back to the hosted key
+    setApiKey('__env__');
     setShowKeyInput(false);
     window.location.href = '/';
   };
@@ -77,14 +83,14 @@ export const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, style }) =>
             {!showKeyInput ? (
               <div className="space-y-2">
                 <p className="text-xs" style={{ color: '#4a4a4a' }}>
-                  {apiKey ? `Stored: ${maskedKey}` : 'No API key stored'}
+                  {maskedKey}
                 </p>
                 <button
                   onClick={() => setShowKeyInput(true)}
                   className="text-xs px-3 py-2 rounded bg-gray-200 hover:bg-gray-300 transition"
                   style={{ color: '#1a1a1a' }}
                 >
-                  {apiKey ? 'Update Key' : 'Add Key'}
+                  {usingHostedKey ? 'Use My Own Key' : 'Update Key'}
                 </button>
               </div>
             ) : (
@@ -197,17 +203,15 @@ export const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, style }) =>
         </div>
 
         {/* Footer */}
-        {apiKey && (
-          <div className="p-6 border-t" style={{ borderColor: '#CCCCCC' }}>
-            <button
-              onClick={handleClearKey}
-              className="w-full text-xs px-3 py-2 rounded font-medium text-white"
-              style={{ backgroundColor: '#9B0808' }}
-            >
-              Clear & Return to Landing
-            </button>
-          </div>
-        )}
+        <div className="p-6 border-t" style={{ borderColor: '#CCCCCC' }}>
+          <button
+            onClick={handleClearKey}
+            className="w-full text-xs px-3 py-2 rounded font-medium text-white"
+            style={{ backgroundColor: '#9B0808' }}
+          >
+            {usingHostedKey ? 'Return to Landing' : 'Clear Key & Return to Landing'}
+          </button>
+        </div>
       </div>
     </>
   );

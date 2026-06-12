@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
 import { TopBar } from './TopBar';
@@ -10,16 +10,24 @@ import { StatusBar } from './ControlBar';
 import { SideMenu } from './SideMenu';
 import { JuryStage } from './JuryStage';
 import { MobileJuryStage } from './MobileJuryStage';
-import { APP_CONSTANTS } from '@/config/constants';
+import { DeliberationFeed } from './DeliberationFeed';
+import { LoadingScreen } from '@/components/LandingPage/LoadingScreen';
 import { playSound, stopSound, stopAllSounds, playRandomSound } from '@/utils/audio';
 import { SOUND_FOLDERS, VOLUME_DEFAULTS, AUDIO_FILES } from '@/config/sounds';
 import { useRandomGibberish } from '@/hooks/useRandomGibberish';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { JuryVote, DiscussionResult } from '@/types/app';
+
+interface StreamVerdict {
+  summary?: string;
+  verdict_narrative?: string;
+  votes?: Record<string, number>;
+}
 
 export const ExperienceContainer: React.FC = () => {
   const router = useRouter();
   const {
     selectedJuries,
-    currentQuestion,
     setCurrentQuestion,
     discussionResult,
     setDiscussionResult,
@@ -33,52 +41,45 @@ export const ExperienceContainer: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [triggerFight, setTriggerFight] = useState(false);
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== 'undefined' &&
-    (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0))
-  );
+  const isMobile = useIsMobile();
   const [fightingAudioFiles, setFightingAudioFiles] = useState<string[]>([]);
   const [resultAudioFiles, setResultAudioFiles] = useState<string[]>([]);
   const [submittedQuestion, setSubmittedQuestion] = useState<string | null>(null);
-  
+  const [liveDiscussion, setLiveDiscussion] = useState<JuryVote[]>([]);
+
+  // Real asset loading state, reported by the Three.js scene
+  const [assetsReady, setAssetsReady] = useState(false);
+  const [assetProgress, setAssetProgress] = useState(0);
+
   // Audio refs
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const currentFightingAudioRef = useRef<HTMLAudioElement | null>(null);
   const resultAudioRefsRef = useRef<HTMLAudioElement[]>([]);
-  const fightingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Update isMobile on resize / orientation change
+  // No jurors selected (e.g. direct link or page refresh) — go back to selection.
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(
-        window.innerWidth < 768 ||
-        ('ontouchstart' in window && navigator.maxTouchPoints > 0)
-      );
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    if (!selectedJuries || selectedJuries.length === 0) {
+      router.replace('/');
+    }
+  }, [selectedJuries, router]);
 
   // Load audio files from folders on mount
   useEffect(() => {
     const loadAudioFiles = async () => {
       try {
-        // Load fighting sounds
         const fightingRes = await fetch(`/api/list-audio-files?folder=${encodeURIComponent(SOUND_FOLDERS.FIGHTING)}`);
         if (fightingRes.ok) {
           const data = await fightingRes.json();
           setFightingAudioFiles(data.files || []);
         }
 
-        // Load result sounds
         const resultRes = await fetch(`/api/list-audio-files?folder=${encodeURIComponent(SOUND_FOLDERS.RESULT)}`);
         if (resultRes.ok) {
           const data = await resultRes.json();
           setResultAudioFiles(data.files || []);
         }
-      } catch (error) {
-        // Silently fail - audio is optional for app functionality
-        console.debug('Audio files unavailable');
+      } catch {
+        // Audio is optional for app functionality
       }
     };
 
@@ -94,7 +95,6 @@ export const ExperienceContainer: React.FC = () => {
   // Manage audio lifecycle: music -> fighting -> results
   useEffect(() => {
     if (!settings.soundEnabled) {
-      // Stop all audio if sound is disabled
       stopSound(musicRef.current);
       stopSound(currentFightingAudioRef.current);
       stopAllSounds(resultAudioRefsRef.current);
@@ -103,56 +103,39 @@ export const ExperienceContainer: React.FC = () => {
 
     // Normal state: play music, stop fighting/results
     if (!triggerFight && !showResults) {
-      // Stop fighting and result sounds
       stopSound(currentFightingAudioRef.current);
       currentFightingAudioRef.current = null;
       stopAllSounds(resultAudioRefsRef.current);
       resultAudioRefsRef.current = [];
 
-      // Play/continue music
       if (!musicRef.current) {
         musicRef.current = playSound(AUDIO_FILES.MUSIC.main, {
           loop: true,
           volume: VOLUME_DEFAULTS.MUSIC,
         });
       } else if (musicRef.current.paused) {
-        musicRef.current.play().catch((err) => console.warn('Failed to resume music:', err));
+        musicRef.current.play().catch(() => {});
       }
     }
     // Fighting state: play fighting sounds, stop music
     else if (triggerFight && !showResults) {
-      // Stop music
       stopSound(musicRef.current);
       musicRef.current = null;
-
-      // Stop result sounds
       stopAllSounds(resultAudioRefsRef.current);
       resultAudioRefsRef.current = [];
 
-      // Play fighting sounds (looping random selection)
-      const playNextFightingSound = () => {
-        if (!triggerFight || showResults || fightingAudioFiles.length === 0) return;
-
+      if (!currentFightingAudioRef.current && fightingAudioFiles.length > 0) {
         currentFightingAudioRef.current = playRandomSound(fightingAudioFiles, {
           loop: true,
           volume: VOLUME_DEFAULTS.FIGHTING,
         });
-
-        // Continue looping until state changes
-      };
-
-      // Only play if we have audio files and haven't already started fighting audio
-      if (!currentFightingAudioRef.current && fightingAudioFiles.length > 0) {
-        playNextFightingSound();
       }
     }
     // Results state: play result sounds, stop fighting
     else if (showResults && discussionResult) {
-      // Stop fighting sounds
       stopSound(currentFightingAudioRef.current);
       currentFightingAudioRef.current = null;
 
-      // Play all result sounds in parallel (only once)
       if (resultAudioRefsRef.current.length === 0 && resultAudioFiles.length > 0) {
         resultAudioFiles.forEach((audioFile) => {
           const audio = playSound(audioFile, {
@@ -165,14 +148,6 @@ export const ExperienceContainer: React.FC = () => {
         });
       }
     }
-
-    // Cleanup fighting timeout
-    return () => {
-      if (fightingTimeoutRef.current) {
-        clearTimeout(fightingTimeoutRef.current);
-        fightingTimeoutRef.current = null;
-      }
-    };
   }, [triggerFight, showResults, discussionResult, settings.soundEnabled, fightingAudioFiles, resultAudioFiles]);
 
   // Cleanup all audio on unmount
@@ -181,9 +156,6 @@ export const ExperienceContainer: React.FC = () => {
       stopSound(musicRef.current);
       stopSound(currentFightingAudioRef.current);
       stopAllSounds(resultAudioRefsRef.current);
-      if (fightingTimeoutRef.current) {
-        clearTimeout(fightingTimeoutRef.current);
-      }
     };
   }, []);
 
@@ -192,106 +164,114 @@ export const ExperienceContainer: React.FC = () => {
     setShowResults(false);
     setDiscussionResult(null);
     setCurrentQuestion('');
+    setLiveDiscussion([]);
+  };
+
+  const failWithError = (message: string) => {
+    setDiscussionResult({ error: message });
+    setIsAIProcessing(false);
+    setTriggerFight(false);
+    setShowResults(true);
   };
 
   const handleSubmitQuestion = async (question: string) => {
-    // Check if API key exists
     if (!apiKey) {
-      console.error('API key not set. Please go back and enter your Anthropic API key.');
-      setIsAIProcessing(false);
+      failWithError('No API key set. Open the menu to add your Anthropic API key.');
       return;
     }
-
-    // Check if selected juries exist
     if (!selectedJuries || selectedJuries.length === 0) {
-      console.error('No juries selected. selectedJuries:', selectedJuries);
-      setIsAIProcessing(false);
+      router.replace('/');
       return;
     }
 
     setSubmittedQuestion(question);
     setCurrentQuestion(question);
     setIsAIProcessing(true);
-    setTriggerFight(true); // Start fight animation
+    setTriggerFight(true);
+    setLiveDiscussion([]);
 
     try {
-      // Wait briefly before calling API to let fight animation start
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const juryIds = selectedJuries.map((j) => j.id);
-      console.log('Submitting question with:', {
-        question,
-        juryIds,
-        juryCount: selectedJuries.length,
-        apiKeyExists: !!apiKey,
-      });
-
-      // Call API to get jury discussion
       const response = await fetch('/api/jury', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question,
-          juryIds,
+          juryIds: selectedJuries.map((j) => j.id),
           apiKey,
           allowUndecided: settings.allowUndecided,
         }),
       });
 
-      console.log('API response status:', response.status, response.statusText);
-
-      if (!response.ok) {
-        let errorMessage = `API Error: ${response.status} ${response.statusText}`;
-        let errorData: any = {};
-        
+      if (!response.ok || !response.body) {
+        let message = `API Error: ${response.status} ${response.statusText}`;
         try {
-          const contentType = response.headers.get('content-type');
-          console.log('Response content-type:', contentType);
-          
-          if (contentType && contentType.includes('application/json')) {
-            errorData = await response.json();
-            console.log('Parsed JSON error:', errorData);
-            if (errorData.error) {
-              errorMessage = `Error: ${errorData.error}`;
-              if (errorData.status) {
-                errorMessage += ` (${errorData.status})`;
-              }
-            }
-          } else {
-            const text = await response.text();
-            console.log('Response text:', text);
-            if (text) {
-              errorMessage = `API Error: ${text}`;
-            }
-          }
-        } catch (parseError) {
-          console.error('Failed to parse error response:', parseError);
+          const data = await response.json();
+          if (data.error) message = data.error;
+        } catch {
+          // keep the status-based message
         }
-        
-        console.error('API Error Status:', response.status);
-        console.error('API Error Data:', errorData);
-        console.error('Final error message:', errorMessage);
-        
-        // Update discussion result with error to display to user
-        setDiscussionResult({
-          error: errorMessage,
-          details: errorData.details,
-        } as any);
-        
-        throw new Error(errorMessage);
+        throw new Error(message);
       }
 
-      const result = await response.json();
-      console.log('API response successful:', result);
+      // Consume the NDJSON stream: juror verdicts appear live as they generate.
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      const discussion: JuryVote[] = [];
+      let verdict: StreamVerdict | null = null;
+      let streamError: string | null = null;
+      let lineBuffer = '';
+
+      const processLine = (line: string) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        let evt: Record<string, unknown>;
+        try {
+          evt = JSON.parse(trimmed);
+        } catch {
+          return;
+        }
+        if (evt.type === 'juror') {
+          discussion.push({
+            id: typeof evt.id === 'string' ? evt.id : undefined,
+            name: String(evt.name ?? ''),
+            stance: String(evt.stance ?? ''),
+            reason: String(evt.reason ?? ''),
+            quote: String(evt.quote ?? ''),
+          });
+          setLiveDiscussion([...discussion]);
+        } else if (evt.type === 'verdict') {
+          verdict = evt as StreamVerdict;
+        } else if (evt.type === 'error') {
+          streamError = String(evt.error ?? 'Unknown error');
+        }
+      };
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        lineBuffer += decoder.decode(value, { stream: true });
+        const lines = lineBuffer.split('\n');
+        lineBuffer = lines.pop() ?? '';
+        lines.forEach(processLine);
+      }
+      processLine(lineBuffer);
+
+      if (streamError) throw new Error(streamError);
+      const finalVerdict = verdict as StreamVerdict | null;
+      if (!finalVerdict || discussion.length === 0) {
+        throw new Error('The jury never reached a verdict. Please try again.');
+      }
+
+      const result: DiscussionResult = {
+        discussion,
+        summary: finalVerdict.summary,
+        verdict_narrative: finalVerdict.verdict_narrative,
+        votes: finalVerdict.votes,
+      };
       setDiscussionResult(result);
     } catch (error) {
       console.error('Error getting jury response:', error);
-      setIsAIProcessing(false);
-      setTriggerFight(false);
-      // Error already set in discussionResult via setDiscussionResult above
-      setShowResults(true);
+      failWithError(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
     }
   };
 
@@ -306,16 +286,26 @@ export const ExperienceContainer: React.FC = () => {
     router.push('/');
   };
 
+  const handleAssetProgress = useCallback((progress: number, done: boolean) => {
+    setAssetProgress((prev) => Math.max(prev, progress));
+    if (done) setAssetsReady(true);
+  }, []);
+
   return (
     <div
       className="overflow-hidden flex flex-col full-dvh"
-      style={{ 
-        width: '100vw', 
-        backgroundColor: 'transparent', 
+      style={{
+        width: '100vw',
+        backgroundColor: 'transparent',
         border: '20px solid #E5E5E1',
         boxSizing: 'border-box',
       }}
     >
+      {/* Loading overlay driven by real asset progress */}
+      {!assetsReady && (
+        <LoadingScreen progress={assetProgress} onComplete={() => setAssetsReady(true)} />
+      )}
+
       {/* Top Bar */}
       <TopBar onMenuClick={() => setMenuOpen(!menuOpen)} style={{ zIndex: 10 }} />
 
@@ -329,6 +319,7 @@ export const ExperienceContainer: React.FC = () => {
             showResults={showResults}
             discussionResult={discussionResult}
             isProcessing={isAIProcessing}
+            onAssetProgress={handleAssetProgress}
           />
         ) : (
           <JuryStage
@@ -337,8 +328,12 @@ export const ExperienceContainer: React.FC = () => {
             showResults={showResults}
             discussionResult={discussionResult}
             isProcessing={isAIProcessing}
+            onAssetProgress={handleAssetProgress}
           />
         )}
+
+        {/* Live deliberation transcript while the jury argues */}
+        <DeliberationFeed votes={liveDiscussion} visible={isAIProcessing && !showResults} />
 
         {/* Input or Result Box (floating, overlaid on canvas, z-index 30) */}
         <InputBox onSubmit={handleSubmitQuestion} isLoading={isAIProcessing} showResults={showResults} submittedQuestion={submittedQuestion} onResetQuestion={handleResetQuestion} />
@@ -346,6 +341,7 @@ export const ExperienceContainer: React.FC = () => {
           <ResultBox
             result={discussionResult}
             showResult={showResults}
+            question={submittedQuestion}
             onRetry={handleResetQuestion}
             onBackToSelection={handleBackToSelection}
           />

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { APP_CONSTANTS } from '@/config/constants';
-import { div } from 'three/src/nodes/tsl/TSLBase.js';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface InputBoxProps {
   onSubmit: (question: string) => void;
@@ -17,9 +17,7 @@ export const InputBox: React.FC<InputBoxProps> = ({ onSubmit, isLoading, style, 
   const [question, setQuestion] = useState('');
   const [charCount, setCharCount] = useState(0);
   const [submittedQuestion, setSubmittedQuestion] = useState<string | null>(null);
-  const isMobile =
-    typeof window !== 'undefined' &&
-    (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0));
+  const isMobile = useIsMobile();
 
   // Use external submitted question if provided, otherwise use local state
   const currentSubmittedQuestion = externalSubmittedQuestion !== undefined ? externalSubmittedQuestion : submittedQuestion;

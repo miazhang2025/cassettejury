@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CharacterDraft } from '@/types/app';
+import { StyleAnchor } from '@/config/styleAnchor';
 
 interface RefineRequestBody {
   draft: CharacterDraft;
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch the current Style Anchor
-    let styleAnchor: any = null;
+    let styleAnchor: StyleAnchor | null = null;
     try {
       const styleAnchorResponse = await fetch(
         `${process.env.NODE_ENV === 'production' ? 'https://' + request.headers.get('host') : 'http://localhost:3000'}/api/admin/style-anchor`

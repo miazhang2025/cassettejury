@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { juries } from '@/config/juries';
 
 export const metadata: Metadata = {
@@ -486,9 +487,9 @@ export default function WriteupPage() {
           {/* ── VIDEO + CTA ── */}
           <div className="wj-video-cta-row">
             <div style={{ flexShrink: 0 }}>
-              <a href="/" className="wj-cta-btn">
+              <Link href="/" className="wj-cta-btn">
                 ← Go to the jury
-              </a>
+              </Link>
             </div>
             <div className="wj-video-wrap" style={{ flex: 1, margin: 0 }}>
               <video autoPlay muted loop playsInline>
@@ -737,12 +738,12 @@ export default function WriteupPage() {
           {/* ── BOTTOM CTA ── */}
           <div className="wj-divider"></div>
           <div style={{ paddingTop: '56px', paddingBottom: '16px', textAlign: 'center' }}>
-            <a
+            <Link
               href="/"
               style={{ display: 'inline-block', fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase', color: '#ffffff', textDecoration: 'none', backgroundColor: '#9B0808', padding: '10px 20px', borderRadius: '6px' }}
             >
               ← Go to the jury
-            </a>
+            </Link>
           </div>
 
           {/* ── FAN ART ── */}

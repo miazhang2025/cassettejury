@@ -22,7 +22,7 @@ export default function SelectImageStep({ images, onSelected, onBack }: SelectIm
   return (
     <div>
       <h2 className="mb-2 text-3xl font-bold text-gray-900">Step 4: Select Image</h2>
-      <p className="mb-6 text-gray-600">Click on the image you'd like to use for 3D model generation.</p>
+      <p className="mb-6 text-gray-600">Click on the image you&apos;d like to use for 3D model generation.</p>
 
       <div className="mb-8 grid grid-cols-2 gap-6">
         {images.map((image, idx) => (

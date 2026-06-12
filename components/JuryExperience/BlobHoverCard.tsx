@@ -21,9 +21,12 @@ export const BlobHoverCard: React.FC<BlobHoverCardProps> = ({
 }) => {
   if (!juryMember || !position || isProcessing) return null;
 
-  // Find this jury member's decision in the discussion results
+  // Find this jury member's decision in the discussion results.
+  // Prefer the stable id; fall back to name for older responses.
   const juryVote = discussionResult?.discussion?.find(
-    (vote) => vote.name.toLowerCase() === juryMember.name.toLowerCase()
+    (vote) =>
+      vote.id === juryMember.id ||
+      vote.name.toLowerCase() === juryMember.name.toLowerCase()
   );
 
   // Calculate viewport-aware positioning to prevent offscreen tooltips

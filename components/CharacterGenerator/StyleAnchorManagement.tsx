@@ -54,7 +54,7 @@ export default function StyleAnchorManagement() {
     }
   };
 
-  const handleFieldChange = (field: keyof StyleAnchor, value: any) => {
+  const handleFieldChange = (field: keyof StyleAnchor, value: StyleAnchor[keyof StyleAnchor]) => {
     setStyleAnchor(prev => prev ? { ...prev, [field]: value } : null);
   };
 

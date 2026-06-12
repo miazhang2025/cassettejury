@@ -67,7 +67,7 @@ export const JuryInfoTooltip: React.FC<JuryInfoTooltipProps> = ({
           </p>
           {vote.quote && (
             <p className="mt-1 text-xs italic" style={{ color: '#4a4a4a' }}>
-              "{vote.quote}"
+              &ldquo;{vote.quote}&rdquo;
             </p>
           )}
         </div>

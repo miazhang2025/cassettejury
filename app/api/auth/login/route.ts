@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { adminCookieValue, ADMIN_COOKIE_NAME } from '@/utils/adminAuth';
 
 interface LoginRequestBody {
   password: string;
@@ -25,7 +26,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Simple password check (for production, use bcrypt or similar)
     if (password !== adminPassword) {
       return NextResponse.json(
         { message: 'Invalid password' },
@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
-    // Set HTTP-only secure cookie
-    response.cookies.set('admin-auth', 'authenticated', {
+    // HTTP-only cookie holding a password-derived hash (verified by the proxy)
+    response.cookies.set(ADMIN_COOKIE_NAME, await adminCookieValue(adminPassword), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

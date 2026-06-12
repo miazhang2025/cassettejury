@@ -1,22 +1,37 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "@/context/AppContext";
 import { PhysicsProvider } from "@/context/PhysicsContext";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://cassettejury.vercel.app";
+const DESCRIPTION =
+  "A pocket jury for creative deadlocks. Nine AI characters — each with their own job, taste, and agenda — deliberate your question live and hand down a verdict.";
 
 export const metadata: Metadata = {
-  title: "Cassette Jury",
-  description: "Cassette Jury is a creative decision-support toy. It is a panel of several AI-simulated characters — each with their own job, taste, and agenda — who act as your on-demand jury when you hit a creative deadlock. Submit an open-ended question, watch them deliberate, and get a verdict.",
+  metadataBase: new URL(SITE_URL),
+  title: "Cassette Jury — an AI jury for creative deadlocks",
+  description: DESCRIPTION,
+  openGraph: {
+    title: "Cassette Jury",
+    description: DESCRIPTION,
+    url: SITE_URL,
+    siteName: "Cassette Jury",
+    images: [
+      {
+        url: "/og.jpg",
+        width: 1200,
+        height: 630,
+        alt: "The Cassette Jury — a panel of colorful 3D blob characters on a wooden stage",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Cassette Jury",
+    description: DESCRIPTION,
+    images: ["/og.jpg"],
+  },
 };
 
 export const viewport: Viewport = {
@@ -35,11 +50,14 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Bayon&family=Blaka&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet" />
+        {/* Only the weights actually used: Blaka (display), Bayon (writeup),
+            IBM Plex Mono 400/500/600/700 + italic 400 (body). */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=Bayon&family=Blaka&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+          rel="stylesheet"
+        />
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className="antialiased">
         <AppProvider>
           <PhysicsProvider>
             {children}

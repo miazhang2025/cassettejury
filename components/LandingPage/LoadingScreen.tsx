@@ -1,53 +1,96 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface LoadingScreenProps {
   onComplete: () => void;
+  /**
+   * Real loading progress, 0–1. When provided, the bar tracks actual asset
+   * loading and the screen completes when progress reaches 1 (with a short
+   * minimum display so it never flashes). When omitted, falls back to a
+   * fixed-duration splash.
+   */
+  progress?: number;
   duration?: number;
 }
 
-export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete, duration = 2200 }) => {
-  const [progress, setProgress] = useState(0);
+const MIN_DISPLAY_MS = 600;
+const FADE_MS = 500;
+// Safety net: never trap the user behind the loader if an asset stalls.
+const MAX_WAIT_MS = 12000;
+
+export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete, progress, duration = 2200 }) => {
+  const driven = progress !== undefined;
+  const [timerProgress, setTimerProgress] = useState(0);
   const [fading, setFading] = useState(false);
+  const mountedAtRef = useRef<number | null>(null);
+  const finishedRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
 
   useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    if (mountedAtRef.current === null) {
+      mountedAtRef.current = Date.now();
+    }
+  }, []);
+
+  // Fallback timer mode (no real progress available)
+  useEffect(() => {
+    if (driven) return;
+
     const steps = 60;
-    const intervalMs = (duration - 500) / steps;
+    const intervalMs = (duration - FADE_MS) / steps;
 
     const interval = setInterval(() => {
-      setProgress(prev => {
-        const next = prev + 100 / steps;
-        if (next >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        return next;
-      });
+      setTimerProgress((prev) => Math.min(prev + 100 / steps, 100));
     }, intervalMs);
 
-    const fadeTimer = setTimeout(() => {
-      setFading(true);
-    }, duration - 500);
-
-    const completeTimer = setTimeout(() => {
-      onComplete();
-    }, duration);
+    const fadeTimer = setTimeout(() => setFading(true), duration - FADE_MS);
+    const completeTimer = setTimeout(() => onCompleteRef.current(), duration);
 
     return () => {
       clearInterval(interval);
       clearTimeout(fadeTimer);
       clearTimeout(completeTimer);
     };
-  }, [duration, onComplete]);
+  }, [duration, driven]);
+
+  // Real-progress mode: complete when assets are in (or the safety net fires)
+  useEffect(() => {
+    if (!driven || finishedRef.current) return;
+
+    const finish = () => {
+      if (finishedRef.current) return;
+      finishedRef.current = true;
+      setFading(true);
+      setTimeout(() => onCompleteRef.current(), FADE_MS);
+    };
+
+    if (progress! >= 1) {
+      const elapsed = Date.now() - (mountedAtRef.current ?? Date.now());
+      const wait = Math.max(0, MIN_DISPLAY_MS - elapsed);
+      const t = setTimeout(finish, wait);
+      return () => clearTimeout(t);
+    }
+
+    const safetyNet = setTimeout(finish, MAX_WAIT_MS);
+    return () => clearTimeout(safetyNet);
+  }, [driven, progress]);
+
+  const barPercent = driven ? Math.round(Math.min(progress!, 1) * 100) : timerProgress;
 
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col items-center justify-center"
+      role="status"
+      aria-label={`Loading, ${Math.round(barPercent)} percent`}
       style={{
         backgroundColor: '#9B0808',
         opacity: fading ? 0 : 1,
-        transition: 'opacity 0.5s ease-out',
+        transition: `opacity ${FADE_MS}ms ease-out`,
         pointerEvents: fading ? 'none' : 'all',
       }}
     >
@@ -67,9 +110,9 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete, durati
           <div
             className="h-full"
             style={{
-              width: `${progress}%`,
+              width: `${barPercent}%`,
               backgroundColor: '#E5E5E1',
-              transition: 'width 0.1s linear',
+              transition: 'width 0.2s ease-out',
             }}
           />
         </div>

@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { BlobGeometry, PhysicsSimulator } from '@/utils/physics';
 import { juries, JuryMember } from '@/config/juries';
 import { DiscussionResult } from '@/types/app';
+import { isLowMemoryWebView } from '@/utils/device';
 
 export interface HoveredBlobInfo {
   juryMember: JuryMember | null;
@@ -35,12 +36,18 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
   const gltfLoaderRef = useRef<GLTFLoader | null>(null);
   const stageRef = useRef<THREE.Group | null>(null);
   const blobBasePositionsRef = useRef<Map<BlobGeometry, THREE.Vector3>>(new Map());
+  // Grounding info per blob: where the stage surface is (floorY) and how far the
+  // model's feet sit below its origin at scale 1 (footOffset). Used to keep feet
+  // planted on the stage even while the idle "breathing" scale animation plays.
+  const blobGroundInfoRef = useRef<Map<BlobGeometry, { floorY: number; footOffset: number }>>(new Map());
   // Queue for staggered GLB loading on memory-constrained devices (iOS Safari)
   // (kept for desktop cache path — not used on Safari iOS which uses sprites)
   const loadQueueRef = useRef<Array<() => void>>([]);
   const loadQueueActiveRef = useRef(false);
 
   const [isReady, setIsReady] = useState(false);
+  const [loadProgress, setLoadProgress] = useState(0);
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
   const [hoveredBlobInfo, setHoveredBlobInfo] = useState<HoveredBlobInfo>({
     juryMember: null,
     screenPosition: null,
@@ -49,6 +56,8 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
   useEffect(() => {
     const canvas = document.getElementById(canvasElementId) as HTMLCanvasElement;
     if (!canvas) return;
+
+    let sceneCleanup: (() => void) | undefined;
 
     // Use a small delay to ensure DOM has fully laid out
     const timeoutId = setTimeout(() => {
@@ -69,10 +78,13 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
         return;
       }
 
-      initializeScene(width, height, canvas);
+      sceneCleanup = initializeScene(width, height, canvas);
     }, 100);
 
-    return () => clearTimeout(timeoutId);
+    return () => {
+      clearTimeout(timeoutId);
+      sceneCleanup?.();
+    };
   }, [canvasElementId]);
 
   // Apply position offset when results show/hide (when not fighting)
@@ -126,6 +138,48 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     }
   }, [showResults, discussionResult]);
 
+  // Drop a single blob so its feet rest on the stage surface directly beneath it.
+  // 1. Measure the model's bounding box (at scale 1) to find the foot offset —
+  //    the distance from the mesh origin down to the lowest point of the model.
+  // 2. Raycast straight down from high above the blob to find the actual stage
+  //    surface height at that (x, z) location.
+  // 3. Position the model so its feet land exactly on that surface.
+  // Falls back to the top of the stage's bounding box if the ray misses.
+  const groundBlob = (blob: BlobGeometry) => {
+    const mesh = blob.mesh;
+    const stage = stageRef.current;
+    if (!mesh || !stage) return; // re-grounded when the stage finishes loading
+
+    // Measure foot offset with the pulsing animation scale neutralised.
+    const prevScale = mesh.scale.clone();
+    mesh.scale.set(1, 1, 1);
+    mesh.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(mesh);
+    const footOffset = mesh.position.y - box.min.y; // origin → feet, at scale 1
+    mesh.scale.copy(prevScale);
+
+    // Find the stage surface beneath the blob via a downward raycast.
+    stage.updateWorldMatrix(true, true);
+    const downRay = new THREE.Raycaster(
+      new THREE.Vector3(mesh.position.x, 1000, mesh.position.z),
+      new THREE.Vector3(0, -1, 0)
+    );
+    const hits = downRay.intersectObject(stage, true);
+    const floorY = hits.length > 0
+      ? hits[0].point.y
+      : new THREE.Box3().setFromObject(stage).max.y;
+
+    // Plant the feet on the surface (at scale 1).
+    mesh.position.y = floorY + footOffset;
+    blob.position.y = mesh.position.y;
+    blobGroundInfoRef.current.set(blob, { floorY, footOffset });
+
+    // Keep stored reference positions in sync so fight resets and the results
+    // layout offset preserve the grounded height.
+    originalBlobPositionsRef.current.get(blob)?.setY(mesh.position.y);
+    blobBasePositionsRef.current.get(blob)?.setY(mesh.position.y);
+  };
+
   const initializeScene = (width: number, height: number, canvas: HTMLCanvasElement) => {
     // Set canvas pixel dimensions
     canvas.width = Math.floor(width);
@@ -133,18 +187,42 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
 
     // Detect mobile for responsive adjustments
     const isMobile = window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0);
-    const isSafariIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !/CriOS/.test(navigator.userAgent);
+    const isSafariIOS = isLowMemoryWebView();
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Track real asset loading so the UI can show genuine progress.
+    // All loaders here (GLTFLoader, TextureLoader) report to DefaultLoadingManager.
+    // Blobs are queued a few frames after init, so "done" only settles after a
+    // short quiet period with nothing left in flight.
+    const manager = THREE.DefaultLoadingManager;
+    let loadSettleTimer: ReturnType<typeof setTimeout> | null = null;
+    manager.onStart = () => {
+      if (loadSettleTimer) {
+        clearTimeout(loadSettleTimer);
+        loadSettleTimer = null;
+      }
+    };
+    manager.onProgress = (_url, itemsLoaded, itemsTotal) => {
+      setLoadProgress(itemsTotal > 0 ? itemsLoaded / itemsTotal : 0);
+    };
+    manager.onLoad = () => {
+      if (loadSettleTimer) clearTimeout(loadSettleTimer);
+      loadSettleTimer = setTimeout(() => {
+        setLoadProgress(1);
+        setAssetsLoaded(true);
+      }, 500);
+    };
 
     // Scene setup
     const scene = new THREE.Scene();
-    
+
     // Load background image — use mobile-optimised asset on small screens
     const textureLoader = new THREE.TextureLoader();
-    const bgPath = isMobile ? '/bg-mobile.png' : '/velvet-bg.png';
+    const bgPath = isMobile ? '/bg-mobile.webp' : '/velvet-bg.webp';
     textureLoader.load(bgPath, (texture) => {
       scene.background = texture;
     });
-    
+
     sceneRef.current = scene;
 
     // Camera - perspective for true 3D
@@ -156,15 +234,17 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
 
     // Renderer
     // On iOS Safari: no antialias + pixel ratio 1 to minimise GPU memory usage.
-    // preserveDrawingBuffer only on desktop: on iOS it doubles framebuffer memory.
+    // Pixel ratio capped at 2 elsewhere — 3x framebuffers cost GPU memory with
+    // no visible gain. preserveDrawingBuffer stays off: the share card renders
+    // from DOM, so nothing reads the canvas back.
     const renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: !isSafariIOS,
       alpha: false,
-      preserveDrawingBuffer: !isMobile,
+      preserveDrawingBuffer: false,
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(isSafariIOS ? 1 : window.devicePixelRatio);
+    renderer.setPixelRatio(isSafariIOS ? 1 : Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = !isSafariIOS;
     rendererRef.current = renderer;
 
@@ -197,6 +277,11 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
         });
         stageRef.current = stage;
         scene.add(stage);
+
+        // Stage may load after some blobs — ground any that are already placed.
+        for (const blob of blobsRef.current.values()) {
+          groundBlob(blob);
+        }
       });
     };
     // On iOS Safari load stage last (after all 7 blobs × 250ms stagger = ~1.75s)
@@ -321,12 +406,14 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, targetDistance + zoomDirection * 0.5));
     };
 
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mousemove', handleCameraMouseMove);
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mouseup', handleMouseUp);
     canvas.addEventListener('mouseleave', handleMouseUp);
-    canvas.addEventListener('contextmenu', (e) => e.preventDefault()); // Prevent context menu
+    canvas.addEventListener('contextmenu', handleContextMenu);
     canvas.addEventListener('wheel', handleMouseWheel, { passive: false });
 
     // --- Touch handlers for mobile ---
@@ -536,7 +623,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       // Subtle camera animation on load - pull back from close-up to normal distance
       if (cameraAnimationTime < CAMERA_ANIMATION_DURATION) {
         const progress = cameraAnimationTime / CAMERA_ANIMATION_DURATION;
-        const easeProgress = 1 - Math.cos(progress * Math.PI) / 2; // easeInOutCosine
+        const easeProgress = (1 - Math.cos(progress * Math.PI)) / 2; // easeInOutCosine, 0 → 1
 
         // Pull back effect: start at initialCameraDistance (3) and zoom out to targetDistance (5)
         const startDistance = initialCameraDistance;
@@ -574,7 +661,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
         }
       }
 
-      if (isAnyBlobFighting) {
+      if (isAnyBlobFighting && !prefersReducedMotion) {
         const shakeAmount = 0.03; // Shake intensity (very mild effect)
         const baseShakeFrequency = 1; // Base frequency
         // Dynamic frequency that varies over time between 7.7-14.3 Hz
@@ -691,29 +778,40 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
                 hoveredBlob = blob;
                 blob.setHighlight(true, blob.originalColor || '#ffffff');
                 
-                // Update hovered blob info with jury member data and screen position
+                // Update hovered blob info with jury member data and screen position.
+                // Return the previous state when nothing meaningfully changed so
+                // React skips re-rendering on every animation frame.
                 const blobWorldPos = blob.getWorldPosition();
                 const screenPos = blobWorldPos.project(camera);
                 const canvasRect = canvas.getBoundingClientRect();
-                setHoveredBlobInfo({
-                  juryMember: blobToJuryRef.current.get(blob) || null,
-                  screenPosition: {
-                    x: canvasRect.left + (screenPos.x + 1) * (canvasRect.width / 2),
-                    y: canvasRect.top + (1 - screenPos.y) * (canvasRect.height / 2),
-                  },
+                const nextX = canvasRect.left + (screenPos.x + 1) * (canvasRect.width / 2);
+                const nextY = canvasRect.top + (1 - screenPos.y) * (canvasRect.height / 2);
+                const nextJury = blobToJuryRef.current.get(blob) || null;
+                setHoveredBlobInfo((prev) => {
+                  if (
+                    prev.juryMember === nextJury &&
+                    prev.screenPosition &&
+                    Math.abs(prev.screenPosition.x - nextX) < 1 &&
+                    Math.abs(prev.screenPosition.y - nextY) < 1
+                  ) {
+                    return prev;
+                  }
+                  return { juryMember: nextJury, screenPosition: { x: nextX, y: nextY } };
                 });
                 break;
               }
               current = current.parent;
             }
-            
+
             if (hoveredBlob === blob) {
               break;
             }
           }
         } else if (!isDragging) {
-          hoveredBlob = null;
-          setHoveredBlobInfo({ juryMember: null, screenPosition: null });
+          if (hoveredBlob !== null) {
+            hoveredBlob = null;
+            setHoveredBlobInfo({ juryMember: null, screenPosition: null });
+          }
         } else if (isDragging && draggedBlob) {
           draggedBlob.setHighlight(true, draggedBlob.originalColor || '#ffffff');
         }
@@ -725,6 +823,14 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
           // Create a pulsing effect with sine wave: ranges from 0.95 to 1.05
           const scale = 1 + Math.sin(time * 2 + blob.mesh.position.x) * 0.05;
           blob.mesh.scale.set(scale, scale, scale);
+
+          // The breathing scale grows from the origin, which would lift/sink the
+          // feet. While idle, re-anchor the feet to the stage surface so the blob
+          // appears to breathe in place rather than float. (Skipped while fighting.)
+          const ground = blobGroundInfoRef.current.get(blob);
+          if (ground && !blob.fightMode) {
+            blob.mesh.position.y = ground.floorY + scale * ground.footOffset;
+          }
         }
       }
 
@@ -741,7 +847,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       canvas.removeEventListener('mousedown', handleMouseDown);
       canvas.removeEventListener('mouseup', handleMouseUp);
       canvas.removeEventListener('mouseleave', handleMouseUp);
-      canvas.removeEventListener('contextmenu', (e) => e.preventDefault());
+      canvas.removeEventListener('contextmenu', handleContextMenu);
       canvas.removeEventListener('wheel', handleMouseWheel);
       canvas.removeEventListener('touchstart', handleTouchStart);
       canvas.removeEventListener('touchmove', handleTouchMove);
@@ -749,6 +855,12 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
       canvas.removeEventListener('touchcancel', handleTouchEnd);
       cancelAnimationFrame(animationId);
       renderer.dispose();
+
+      // Detach the global loading manager callbacks
+      if (loadSettleTimer) clearTimeout(loadSettleTimer);
+      manager.onStart = undefined;
+      manager.onProgress = () => {};
+      manager.onLoad = () => {};
 
       // Dispose smoke particle pool
       smokePlaneGeometry.dispose();
@@ -773,10 +885,8 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
     // iOS Safari (non-Chrome): use a PNG sprite instead of GLB.
     // THREE.Sprite auto-billboards to the camera, uses SpriteMaterial (not Mesh),
     // so BlobGeometry.traverse skips material override — zero GLB memory cost.
-    const isSafariIOS =
-      typeof window !== 'undefined' &&
-      /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-      !/CriOS/.test(navigator.userAgent);
+    // Everything else (desktop, Android, Chrome on iOS) gets the real models.
+    const isSafariIOS = isLowMemoryWebView();
 
     if (isSafariIOS) {
       const texLoader = new THREE.TextureLoader();
@@ -795,6 +905,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
             originalBlobPositionsRef.current.set(blob, position.clone());
             blobBasePositionsRef.current.set(blob, position.clone());
             blobToJuryRef.current.set(blob, juryMember);
+            groundBlob(blob);
           }
         },
         undefined,
@@ -811,6 +922,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
             originalBlobPositionsRef.current.set(blob, position.clone());
             blobBasePositionsRef.current.set(blob, position.clone());
             blobToJuryRef.current.set(blob, juryMember);
+            groundBlob(blob);
           }
         }
       );
@@ -842,6 +954,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
           originalBlobPositionsRef.current.set(blob, position.clone());
           blobBasePositionsRef.current.set(blob, position.clone());
           blobToJuryRef.current.set(blob, juryMember);
+          groundBlob(blob);
         }
         advanceQueue();
       };
@@ -879,6 +992,7 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
             originalBlobPositionsRef.current.set(blob, position.clone());
             blobBasePositionsRef.current.set(blob, position.clone());
             blobToJuryRef.current.set(blob, juryMember);
+            groundBlob(blob);
           }
           advanceQueue();
         }
@@ -921,6 +1035,8 @@ export const useThreeJsScene = (canvasElementId: string, showResults: boolean = 
 
   return {
     isReady,
+    loadProgress,
+    assetsLoaded,
     addBlob,
     removeBlob,
     triggerFight,

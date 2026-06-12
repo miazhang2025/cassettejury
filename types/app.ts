@@ -47,8 +47,9 @@ export interface DiscussionResult {
 }
 
 export interface JuryVote {
+  id?: string;
   name: string;
-  stance: 'Option A' | 'Option B' | 'Undecided';
+  stance: string;
   reason: string;
   quote: string;
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
 
 export default function DebugPage() {
@@ -8,7 +9,7 @@ export default function DebugPage() {
   const [testApiKey, setTestApiKey] = useState('');
   const [testQuestion, setTestQuestion] = useState('Do you prefer blue or red?');
   const [loading, setLoading] = useState(false);
-  const [response, setResponse] = useState<any>(null);
+  const [response, setResponse] = useState<unknown>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -139,7 +140,7 @@ export default function DebugPage() {
           </div>
         )}
 
-        {response && (
+        {response !== null && (
           <div style={{ marginTop: '10px', color: 'green', backgroundColor: '#e0ffe0', padding: '10px' }}>
             <strong>Success!</strong>
             <pre>{JSON.stringify(response, null, 2)}</pre>
@@ -149,7 +150,7 @@ export default function DebugPage() {
 
       <div style={{ marginBottom: '20px' }}>
         <p>
-          <a href="/">Back to Home</a> | <a href="/jury">Go to Jury</a>
+          <Link href="/">Back to Home</Link> | <Link href="/jury">Go to Jury</Link>
         </p>
       </div>
     </div>

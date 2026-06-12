@@ -6,23 +6,19 @@ import { useApp } from '@/context/AppContext';
 import { LandingContainer } from '@/components/LandingPage/LandingContainer';
 import { HeroSection } from '@/components/LandingPage/HeroSection';
 import { JurySelector } from '@/components/LandingPage/JurySelector';
-import { ApiKeyInput } from '@/components/LandingPage/ApiKeyInput';
-import { LoadingScreen } from '@/components/LandingPage/LoadingScreen';
+import { ProceedBar } from '@/components/LandingPage/ProceedBar';
 import { JuryMember } from '@/config/juries';
-import { APP_CONSTANTS } from '@/config/constants';
 
 export default function Home() {
   const router = useRouter();
-  const { setSelectedJuries, setApiKey, setStage, allJuries } = useApp();
+  const { setSelectedJuries, setStage, allJuries } = useApp();
   const [selectedJuries, setLocalSelectedJuries] = useState<JuryMember[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   const handleSelectionChange = (juries: JuryMember[]) => {
     setLocalSelectedJuries(juries);
   };
 
-  const handleApiKeySubmit = (apiKey: string) => {
-    setApiKey(apiKey);
+  const handleProceed = () => {
     setSelectedJuries(selectedJuries);
     setStage('experience');
     router.push('/jury');
@@ -30,7 +26,6 @@ export default function Home() {
 
   return (
     <>
-      {isLoading && <LoadingScreen onComplete={() => setIsLoading(false)} />}
       <LandingContainer>
         <HeroSection />
         <JurySelector
@@ -38,11 +33,7 @@ export default function Home() {
           onSelectionChange={handleSelectionChange}
           onProceed={() => {}}
         />
-        <ApiKeyInput
-          onApiKeySubmit={handleApiKeySubmit}
-          isValid={selectedJuries.length === APP_CONSTANTS.SELECTED_JURIES_COUNT}
-          selectedCount={selectedJuries.length}
-        />
+        <ProceedBar onProceed={handleProceed} selectedCount={selectedJuries.length} />
       </LandingContainer>
     </>
   );

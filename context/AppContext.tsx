@@ -19,38 +19,33 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [discussionResult, setDiscussionResult] = useState<DiscussionResult | null>(null);
   const [isAIProcessing, setIsAIProcessing] = useState(false);
-  const [apiKey, setApiKey] = useState<string | null>(null);
+  // The '__env__' sentinel is resolved to the server-side key in /api/jury,
+  // so visitors never enter a key. A custom key set via the settings menu
+  // (persisted in sessionStorage) overrides it on mount.
+  const [apiKey, setApiKey] = useState<string | null>('__env__');
   const [settings, setSettings] = useState<AppSettings>({
     soundEnabled: true,
     theme: 'light',
     allowUndecided: false,
   });
 
-  // Log initialization
+  // Restore a custom key from sessionStorage on mount. Reading an external
+  // store can't happen during render without a hydration mismatch.
   useEffect(() => {
-    console.log('AppContext initialized with selectedJuries:', selectedJuries.map(j => j.id));
-  }, []);
-
-  // Load API key from sessionStorage on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // TEMPORARY: if server env key is active, use sentinel — no user input needed
-      if (process.env.NEXT_PUBLIC_USE_ENV_KEY === 'true') {
-        setApiKey('__env__');
-        return;
-      }
-      const stored = sessionStorage.getItem(APP_CONSTANTS.API_KEY_SESSION_KEY);
-      if (stored) {
-        console.log('Loaded API key from sessionStorage');
-        setApiKey(stored);
-      }
+    const stored = sessionStorage.getItem(APP_CONSTANTS.API_KEY_SESSION_KEY);
+    if (stored && stored !== '__env__') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time sync from sessionStorage
+      setApiKey(stored);
     }
   }, []);
 
-  // Save API key to sessionStorage when it changes
+  // Persist custom keys only — the hosted-key sentinel needs no storage.
   useEffect(() => {
-    if (apiKey && typeof window !== 'undefined') {
+    if (typeof window === 'undefined') return;
+    if (apiKey && apiKey !== '__env__') {
       sessionStorage.setItem(APP_CONSTANTS.API_KEY_SESSION_KEY, apiKey);
+    } else {
+      sessionStorage.removeItem(APP_CONSTANTS.API_KEY_SESSION_KEY);
     }
   }, [apiKey]);
 

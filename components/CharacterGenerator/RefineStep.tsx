@@ -229,7 +229,7 @@ export default function RefineStep({
             rows={3}
             className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <p className="mt-1 text-xs text-gray-500">Describes the blob character's shape, pose, and presence</p>
+          <p className="mt-1 text-xs text-gray-500">Describes the blob character&apos;s shape, pose, and presence</p>
         </div>
 
         {/* Color */}

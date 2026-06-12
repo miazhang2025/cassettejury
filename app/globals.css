@@ -8,8 +8,6 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -48,4 +46,73 @@ p, label, span, button, input, textarea, div {
 .full-dvh {
   height: 100vh;
   height: 100dvh;
+}
+
+/* Result sidebar entrance */
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Live deliberation bubbles */
+@keyframes feedBubbleIn {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.feed-bubble {
+  animation: feedBubbleIn 0.35s ease-out forwards;
+}
+
+/* Result sidebar action buttons */
+.result-action-btn {
+  background-color: #9B0808;
+  color: #E5E5E1;
+  border: none;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background-color 0.2s ease-out;
+}
+
+.result-action-btn:hover:not(:disabled) {
+  background-color: #7A0606;
+}
+
+.result-action-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

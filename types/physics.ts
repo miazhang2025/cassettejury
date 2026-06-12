@@ -13,7 +13,7 @@ export interface PhysicsState {
 }
 
 export interface PhysicsContextType {
-  world: any; // Rapier.World
+  world: unknown; // Reserved for a future Rapier.World instance
   blobs: BlobInstance[];
   registerBlob: (blob: BlobInstance) => void;
   unregisterBlob: (blobId: string) => void;

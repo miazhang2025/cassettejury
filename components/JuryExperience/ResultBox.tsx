@@ -1,151 +1,116 @@
 'use client';
 
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DiscussionResult } from '@/types/app';
-import { toPng } from 'html-to-image';
+import { getJuryById } from '@/config/juries';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { shareNodeAsPng } from '@/utils/shareCard';
+import { ShareCard } from './ShareCard';
 
 interface ResultBoxProps {
   result: DiscussionResult | null;
   showResult: boolean;
+  question?: string | null;
   onRetry?: () => void;
   onBackToSelection?: () => void;
   style?: React.CSSProperties;
 }
 
-const slideInStyle: React.CSSProperties = {
-  animation: 'slideInFromRight 0.5s ease-out forwards',
-};
-
-const slideInMobileStyle: React.CSSProperties = {
-  animation: 'slideInFromBottom 0.5s ease-out forwards',
-};
+const ActionButton: React.FC<{
+  onClick?: () => void;
+  children: React.ReactNode;
+  disabled?: boolean;
+}> = ({ onClick, children, disabled }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    className="result-action-btn w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base"
+  >
+    {children}
+  </button>
+);
 
 export const ResultBox: React.FC<ResultBoxProps> = ({
   result,
   showResult,
+  question,
   onRetry,
   onBackToSelection,
   style,
 }) => {
   const router = useRouter();
-  const isMobile =
-    typeof window !== 'undefined' &&
-    (window.innerWidth < 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0));
+  const isMobile = useIsMobile();
+  const shareCardRef = useRef<HTMLDivElement>(null);
+  const [sharing, setSharing] = useState(false);
+  const [copied, setCopied] = useState(false);
+
   if (!showResult || !result) return null;
 
-  const buildFontEmbedCSS = async (): Promise<string> => {
+  const handleShareCard = async () => {
+    if (!shareCardRef.current || sharing) return;
+    setSharing(true);
     try {
-      const googleFontsUrl = 'https://fonts.googleapis.com/css2?family=Blaka&family=IBM+Plex+Mono:ital,wght@0,400;0,700;1,400&display=swap';
-      const cssResponse = await fetch(googleFontsUrl);
-      let css = await cssResponse.text();
-
-      // Find all font file URLs and replace with base64 data URLs
-      const fontUrls = [...css.matchAll(/url\((https:\/\/fonts\.gstatic\.com[^)]+)\)/g)].map(m => m[1]);
-      for (const url of fontUrls) {
-        try {
-          const fontRes = await fetch(url);
-          const blob = await fontRes.blob();
-          const base64 = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
-          css = css.replace(`url(${url})`, `url(${base64})`);
-        } catch { /* skip individual font on error */ }
-      }
-      return css;
-    } catch {
-      return '';
-    }
-  };
-
-  const handleScreenshot = async () => {
-    try {
-      const fontEmbedCSS = await buildFontEmbedCSS();
-      const dataUrl = await toPng(document.body, {
-        quality: 1,
-        pixelRatio: 2,
-        fontEmbedCSS,
-      });
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = `cassette-jury-${Date.now()}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      await shareNodeAsPng(shareCardRef.current, `cassette-jury-${Date.now()}.png`);
     } catch (error) {
-      console.error('Screenshot failed:', error);
-      captureCanvasOnly();
+      console.error('Share card failed:', error);
+    } finally {
+      setSharing(false);
     }
   };
 
-  const captureCanvasOnly = () => {
-    const canvasElement = document.querySelector('canvas') as HTMLCanvasElement;
-    if (!canvasElement || canvasElement.width === 0 || canvasElement.height === 0) {
-      console.error('Canvas not found or has invalid dimensions');
-      return;
+  const handleCopyVerdict = async () => {
+    const lines = [
+      question ? `Q: ${question}` : null,
+      `The jury has decided: ${result.summary}`,
+      result.verdict_narrative ?? null,
+      ...Object.entries(result.votes || {}).map(([option, count]) => `${option}: ${count}`),
+      '— Cassette Jury',
+    ].filter(Boolean);
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Copy failed:', error);
     }
-
-    const dataUrl = canvasElement.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = dataUrl;
-    link.download = `cassette-jury-${Date.now()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
-  // Add keyframes style to document
-  React.useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes slideInFromRight {
-        from {
-          transform: translateX(100%);
-          opacity: 0;
-        }
-        to {
-          transform: translateX(0);
-          opacity: 1;
-        }
-      }
-      @keyframes slideInFromBottom {
-        from {
-          transform: translateY(100%);
-          opacity: 0;
-        }
-        to {
-          transform: translateY(0);
-          opacity: 1;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-    return () => {
-      document.head.removeChild(style);
-    };
-  }, []);
+  const handleBack = () => {
+    if (onBackToSelection) onBackToSelection();
+    else router.push('/');
+  };
 
-  // Handle error results
+  const containerClass = isMobile
+    ? 'fixed bottom-0 left-0 right-0 overflow-y-auto flex flex-col shadow-lg'
+    : 'fixed right-0 top-0 h-screen w-80 overflow-y-auto flex flex-col shadow-lg';
+
+  const containerStyle: React.CSSProperties = {
+    backgroundImage: 'url(/sidebar.webp)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    zIndex: result.error ? 50 : 40,
+    pointerEvents: 'auto',
+    animation: isMobile
+      ? 'slideInFromBottom 0.5s ease-out forwards'
+      : 'slideInFromRight 0.5s ease-out forwards',
+    ...(result.error
+      ? {}
+      : isMobile
+        ? { borderTop: '2px solid #CCCCCC', height: '45vh' }
+        : { borderLeft: '2px solid #CCCCCC', height: '100vh' }),
+    ...style,
+  };
+
+  const bodyClass = isMobile ? 'pt-8 pb-8 px-14 space-y-6 flex-1' : 'p-10 space-y-6 flex-1';
+  const footerClass = isMobile ? 'pt-6 pb-6 px-14 space-y-3 border-t' : 'p-10 space-y-3 border-t';
+
+  // Error state
   if (result.error) {
     return (
-      <div
-        className={isMobile
-          ? 'fixed bottom-0 left-0 right-0 overflow-y-auto flex flex-col shadow-lg'
-          : 'fixed right-0 top-0 h-screen w-80 overflow-y-auto flex flex-col shadow-lg'
-        }
-        style={{
-          backgroundImage: 'url(/sidebar.webp)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          zIndex: 50,
-          pointerEvents: 'auto',
-          ...(isMobile ? slideInMobileStyle : slideInStyle),
-          ...style,
-        }}
-      >
-        <div className={isMobile ? 'pt-8 pb-8 px-14 space-y-4 flex-1' : 'p-10 space-y-4 flex-1'}>
+      <div className={containerClass} style={containerStyle} role="alert">
+        <div className={bodyClass}>
           <h2 className="text-xl sm:text-2xl font-bold" style={{ color: '#9B0808' }}>
             Error
           </h2>
@@ -160,76 +125,15 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
           )}
         </div>
 
-        {/* Button Footer */}
-        <div className={isMobile ? 'pt-6 pb-6 px-14 space-y-3 border-t' : 'p-10 space-y-3 border-t'} style={{ borderColor: '#CCCCCC' }}>
-          <button
-            type="button"
-            onClick={onRetry}
-            className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
-            style={{
-              backgroundColor: '#9B0808',
-              color: '#E5E5E1',
-              cursor: 'pointer',
-              border: 'none',
-              pointerEvents: 'auto',
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLButtonElement).style.backgroundColor = '#9B0808';
-            }}
-          >
-            Ask Again
-          </button>
-          {!isMobile && (
-            <button
-              type="button"
-              onClick={handleScreenshot}
-              className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
-              style={{
-                backgroundColor: '#9B0808',
-                color: '#E5E5E1',
-                cursor: 'pointer',
-                border: 'none',
-                pointerEvents: 'auto',
-              }}
-              onMouseEnter={(e) => {
-                (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
-              }}
-              onMouseLeave={(e) => {
-                (e.target as HTMLButtonElement).style.backgroundColor = '#9B0808';
-              }}
-            >
-              Screenshot
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => router.push('/')}
-            className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
-            style={{
-              backgroundColor: '#9B0808',
-              color: '#E5E5E1',
-              cursor: 'pointer',
-              border: 'none',
-              pointerEvents: 'auto',
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLButtonElement).style.backgroundColor = '#9B0808';
-            }}
-          >
-            Back
-          </button>
+        <div className={footerClass} style={{ borderColor: '#CCCCCC' }}>
+          <ActionButton onClick={onRetry}>Ask Again</ActionButton>
+          <ActionButton onClick={handleBack}>Back</ActionButton>
         </div>
       </div>
     );
   }
 
-  // Calculate vote percentages
+  // Vote percentages
   const totalVotes = Object.values(result.votes || {}).reduce((sum, val) => sum + val, 0);
   const votePercentages = Object.entries(result.votes || {}).map(([option, count]) => ({
     option,
@@ -238,25 +142,8 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
   }));
 
   return (
-    <div
-      className={isMobile
-        ? 'fixed bottom-0 left-0 right-0 overflow-y-auto flex flex-col shadow-lg'
-        : 'fixed right-0 top-0 h-screen w-80 overflow-y-auto flex flex-col shadow-lg'
-      }
-      style={{
-        backgroundImage: 'url(/sidebar.webp)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        ...(isMobile
-          ? { borderTop: '2px solid #CCCCCC', height: '33vh' }
-          : { borderLeft: '2px solid #CCCCCC', height: '100vh' }),
-        zIndex: 40,
-        pointerEvents: 'auto',
-        ...(isMobile ? slideInMobileStyle : slideInStyle),
-        ...style,
-      }}
-    >
-      <div className={isMobile ? 'pt-8 pb-8 px-14 space-y-6 flex-1' : 'p-10 space-y-6 flex-1'}>
+    <div className={containerClass} style={containerStyle} aria-label="Jury verdict">
+      <div className={bodyClass}>
         {/* Summary */}
         <div>
           <p className="text-xs sm:text-sm" style={{ color: '#4a4a4a' }}>
@@ -275,7 +162,7 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
         )}
 
         {/* Vote breakdown */}
-        <div className=" pt-4" >
+        <div className="pt-2">
           <p className="text-xs sm:text-sm font-medium mb-3" style={{ color: '#4a4a4a' }}>
             Jury breakdown:
           </p>
@@ -291,77 +178,53 @@ export const ResultBox: React.FC<ResultBoxProps> = ({
           </div>
         </div>
 
-        {/* Hover hint */}
-        <p className="text-xs sm:text-sm text-center" style={{ color: '#8a8a8a' }}>
-          👆 Tap & hold blobs to see individual jury member verdicts
-        </p>
+        {/* Full deliberation — every juror's take, readable without hovering */}
+        {result.discussion && result.discussion.length > 0 && (
+          <div className="pt-2">
+            <p className="text-xs sm:text-sm font-medium mb-3" style={{ color: '#4a4a4a' }}>
+              The deliberation:
+            </p>
+            <ul className="space-y-3" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {result.discussion.map((vote) => {
+                const jury = vote.id ? getJuryById(vote.id) : undefined;
+                const accent = jury?.color ?? '#9B0808';
+                return (
+                  <li key={vote.id ?? vote.name} style={{ borderLeft: `3px solid ${accent}`, paddingLeft: 10 }}>
+                    <p className="text-xs" style={{ color: '#1a1a1a', margin: 0 }}>
+                      <span style={{ fontWeight: 700 }}>{vote.name}</span>
+                      <span
+                        className="ml-2 px-1 py-0.5 rounded text-[10px] uppercase tracking-wide"
+                        style={{ backgroundColor: accent, color: '#FFFFFF' }}
+                      >
+                        {vote.stance}
+                      </span>
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: '#1a1a1a', fontStyle: 'italic' }}>
+                      “{vote.quote}”
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: '#4a4a4a', lineHeight: 1.5 }}>
+                      {vote.reason}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* Button Footer */}
-      <div className={isMobile ? 'pt-6 pb-6 px-14 space-y-3 border-t' : 'p-10 space-y-3 border-t'} style={{ borderColor: '#CCCCCC' }}>
-        <button
-          type="button"
-          onClick={onRetry}
-          className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
-          style={{
-            backgroundColor: '#9B0808',
-            color: '#E5E5E1',
-            cursor: 'pointer',
-            border: 'none',
-            pointerEvents: 'auto',
-          }}
-          onMouseEnter={(e) => {
-            (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
-          }}
-          onMouseLeave={(e) => {
-            (e.target as HTMLButtonElement).style.backgroundColor = '#9B0808';
-          }}
-        >
-          Ask Again
-        </button>
-        {!isMobile && (
-          <button
-            type="button"
-            onClick={handleScreenshot}
-            className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
-            style={{
-              backgroundColor: '#9B0808',
-              color: '#E5E5E1',
-              cursor: 'pointer',
-              border: 'none',
-              pointerEvents: 'auto',
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLButtonElement).style.backgroundColor = '#9B0808';
-            }}
-          >
-            Screenshot
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => router.push('/')}
-          className="w-full px-4 py-2 sm:py-3 rounded font-semibold text-sm sm:text-base transition-colors"
-          style={{
-            backgroundColor: '#9B0808',
-            color: '#E5E5E1',
-            cursor: 'pointer',
-            border: 'none',
-            pointerEvents: 'auto',
-          }}
-          onMouseEnter={(e) => {
-            (e.target as HTMLButtonElement).style.backgroundColor = '#7A0606';
-          }}
-          onMouseLeave={(e) => {
-            (e.target as HTMLButtonElement).style.backgroundColor = '#9B0808';
-          }}
-        >
-          Back
-        </button>
+      <div className={footerClass} style={{ borderColor: '#CCCCCC' }}>
+        <ActionButton onClick={onRetry}>Ask Again</ActionButton>
+        <ActionButton onClick={handleShareCard} disabled={sharing}>
+          {sharing ? 'Rendering…' : 'Save Verdict Card'}
+        </ActionButton>
+        <ActionButton onClick={handleCopyVerdict}>{copied ? 'Copied!' : 'Copy Verdict'}</ActionButton>
+        <ActionButton onClick={handleBack}>Back</ActionButton>
       </div>
+
+      {/* Off-screen share card rendered to PNG on demand */}
+      <ShareCard ref={shareCardRef} result={result} question={question} />
     </div>
   );
 };

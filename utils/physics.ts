@@ -37,7 +37,7 @@ export class BlobGeometry {
           // Extract the original texture map if it exists
           let originalMap: THREE.Texture | null = null;
           if (child.material instanceof THREE.Material && 'map' in child.material) {
-            originalMap = (child.material as any).map;
+            originalMap = (child.material as THREE.MeshStandardMaterial).map;
           }
 
           // Create toon material with morphTargets support
@@ -127,8 +127,8 @@ export class BlobGeometry {
     if (!this.mesh) return;
 
     // Handle THREE.Sprite
-    if ((this.mesh as any).isSprite) {
-      const mat = (this.mesh as any).material;
+    if ((this.mesh as unknown as THREE.Sprite).isSprite) {
+      const mat = (this.mesh as unknown as THREE.Sprite).material;
       if (highlighted) {
         mat.color.setHex(0xffdddd);
       } else {
