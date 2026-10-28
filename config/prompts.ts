@@ -48,8 +48,11 @@ Final line — the verdict:
 Every line must be valid standalone JSON. Vote counts must match the jurors' stances exactly.`;
 }
 
-export function buildUserPrompt(question: string): string {
-  return `Creative Direction Question: "${question}"
+export function buildUserPrompt(question: string, hasImage = false): string {
+  const imageNote = hasImage
+    ? `\n\nThe asker attached the image above as part of the question. Jurors should look at it closely and react to what they actually see in it.`
+    : '';
+  return `Creative Direction Question: "${question}"${imageNote}
 
 Deliberate now. Remember: NDJSON only — sides line, one line per juror, verdict line.`;
 }

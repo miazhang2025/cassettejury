@@ -6,13 +6,17 @@ import { buildJurySystemPrompt, buildUserPrompt } from '@/config/prompts';
 
 export const runtime = 'nodejs';
 
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+// Anthropic caps images at 5MB decoded; base64 is ~4/3 of that.
+const MAX_IMAGE_BASE64_LENGTH = Math.ceil((5 * 1024 * 1024 * 4) / 3);
+
 // Streams the jury deliberation back to the client as NDJSON
 // (one JSON object per line: a "sides" line, one "juror" line per member,
 // and a final "verdict" line — see config/prompts.ts for the protocol).
 export async function POST(request: NextRequest) {
   try {
     const body: AIRequest = await request.json();
-    const { question, juryIds, apiKey: rawApiKey, allowUndecided = false } = body;
+    const { question, juryIds, apiKey: rawApiKey, allowUndecided = false, image } = body;
 
     // The client sends '__env__' as a sentinel for the hosted key;
     // the real key is resolved here so it never leaves the server.
@@ -47,6 +51,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (image) {
+      if (
+        typeof image.data !== 'string' ||
+        !ALLOWED_IMAGE_TYPES.includes(image.mediaType) ||
+        image.data.length > MAX_IMAGE_BASE64_LENGTH
+      ) {
+        return NextResponse.json(
+          { error: 'Invalid image. Use a JPEG, PNG, GIF or WebP under 5MB.' },
+          { status: 400 }
+        );
+      }
+    }
+
     const selectedJuries = getJuriesByIds(juryIds);
     if (selectedJuries.length === 0) {
       return NextResponse.json({ error: 'No valid jury members found' }, { status: 400 });
@@ -59,7 +76,20 @@ export async function POST(request: NextRequest) {
       max_tokens: 16000,
       thinking: { type: 'adaptive' },
       system: buildJurySystemPrompt(selectedJuries, allowUndecided),
-      messages: [{ role: 'user', content: buildUserPrompt(question) }],
+      messages: [
+        {
+          role: 'user',
+          content: image
+            ? [
+                {
+                  type: 'image',
+                  source: { type: 'base64', media_type: image.mediaType, data: image.data },
+                },
+                { type: 'text', text: buildUserPrompt(question, true) },
+              ]
+            : buildUserPrompt(question),
+        },
+      ],
     });
 
     const encoder = new TextEncoder();

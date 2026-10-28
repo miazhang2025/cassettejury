@@ -17,6 +17,7 @@ import { SOUND_FOLDERS, VOLUME_DEFAULTS, AUDIO_FILES } from '@/config/sounds';
 import { useRandomGibberish } from '@/hooks/useRandomGibberish';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { JuryVote, DiscussionResult } from '@/types/app';
+import { QuestionImage } from '@/types/ai';
 
 interface StreamVerdict {
   summary?: string;
@@ -174,7 +175,7 @@ export const ExperienceContainer: React.FC = () => {
     setShowResults(true);
   };
 
-  const handleSubmitQuestion = async (question: string) => {
+  const handleSubmitQuestion = async (question: string, image?: QuestionImage) => {
     if (!apiKey) {
       failWithError('No API key set. Open the menu to add your Anthropic API key.');
       return;
@@ -199,6 +200,7 @@ export const ExperienceContainer: React.FC = () => {
           juryIds: selectedJuries.map((j) => j.id),
           apiKey,
           allowUndecided: settings.allowUndecided,
+          image,
         }),
       });
 
